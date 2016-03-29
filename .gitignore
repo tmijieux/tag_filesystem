@@ -1,0 +1,11 @@
+*.log
+*~
+\#*#
+*.o
+*.deps/
+TAGS
+*.tar
+*.gz
+build/
+.*.swp
+mnt/
