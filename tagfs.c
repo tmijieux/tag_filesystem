@@ -16,16 +16,10 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-static DIR *dir;
-static char *dirpath;
+#include "log.h"
 
-/*******************
- * Logs
- */
-
-#define LOGFILE "tagfs.log"
-FILE *mylog;
-#define LOG(args...) do { fprintf(mylog, args); fflush(mylog); } while (0)
+DIR *dir;
+char *dirpath;
 
 /*************************
  * File operations
@@ -142,7 +136,7 @@ int tag_read(
     return res;
 }
 
-static struct fuse_operations tag_oper = {
+struct fuse_operations tag_oper = {
     .getattr = tag_getattr,
     .readdir = tag_readdir,
     .read = tag_read,
@@ -152,36 +146,3 @@ static struct fuse_operations tag_oper = {
  * Main
  */
 
-int main(int argc, char *argv[])
-{
-    int err;
-
-    if (argc < 2) {
-        fprintf(stderr, "missing destination directory\n");
-        exit(EXIT_FAILURE);
-    }
-    /* find the absolute directory because fuse_main()
-     * doesn't launch the daemon in the same current directory.
-     */
-    dirpath = realpath(argv[1], NULL);
-    dir = opendir(dirpath);
-    if (!dir) {
-        fprintf(stderr, "couldn't open directory %s\n", dirpath);
-        exit(EXIT_FAILURE);
-    }
-    argv++;
-    argc--;
-
-    mylog = fopen(LOGFILE, "a"); /* append logs to previous executions */
-    LOG("\n");
-
-    LOG("starting grepfs in %s\n", dirpath);
-    err = fuse_main(argc, argv, &tag_oper, NULL);
-    LOG("stopped grepfs with return code %d\n", err);
-
-    closedir(dir);
-    free(dirpath);
-
-    LOG("\n");
-    return err;
-}

@@ -10,3 +10,6 @@ build/
 .*.swp
 mnt/
 *.d
+tagfs
+grepfs
+hello
