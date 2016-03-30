@@ -28,3 +28,12 @@ $(TARGET): $(OBJ)
 clean: 
 	$(RM) $(OBJ) $(DEP) *.log *.o
 	make -C cutil clean
+
+restart:
+	fusermount -u mnt || true
+	./tagfs . mnt -f -d -s
+
+debug:
+	fusermount -u mnt || true
+	gdb --args ./tagfs . mnt -f -d -s
+

@@ -33,8 +33,8 @@ struct ht_entry {
 struct hash_table {
     int (*hash) (const char*);
     size_t size;
+    size_t entry_count;
     struct ht_entry **buf;
-    int entry_count;
 };
 
 static const unsigned char T[256] = {
@@ -96,9 +96,14 @@ static void free_entry(struct ht_entry *he)
     }
 }
 
+int ht_entry_count(const struct hash_table *ht)
+{
+    return ht->entry_count;
+}
+
 struct hash_table* ht_create(size_t size, int (*hash)(const char*))
 {
-    struct hash_table *ht = (struct hash_table*) malloc(sizeof(*ht));
+    struct hash_table *ht = (struct hash_table*) calloc(sizeof(*ht), 1);
     if (hash)
 	ht->hash = hash;
     else
@@ -119,7 +124,7 @@ int ht_add_entry(struct hash_table* ht, const char *key, void *data)
     struct ht_entry *he = new_entry(key, data);
     he->next = ht->buf[pos];
     ht->buf[pos] = he;
-
+    ht->entry_count ++;
     return 0;
 }
 
@@ -137,6 +142,7 @@ int ht_remove_entry(struct hash_table *ht, const char *key)
 	    else
 		ht->buf[pos] = he->next;
 	    free_entry(he);
+            ht->entry_count--;
 	    return 0;
 	}
 	prev = he;

@@ -13,20 +13,20 @@
 #include "log.h"
 
 extern struct fuse_operations tag_oper;
-extern DIR *dir;
-extern char *dirpath;
+extern DIR *realdir;
+extern char *realdirpath;
 
 static void set_root_directory(const char *path)
 {
-    dirpath = realpath(path, NULL);
-    if (NULL == dirpath) {
+    realdirpath = realpath(path, NULL);
+    if (NULL == realdirpath) {
         fprintf(stderr, "%s: %s\n", path, strerror(errno));
         exit(EXIT_FAILURE);
     }
-    dir = opendir(dirpath);
-    if (!dir) {
+    realdir = opendir(realdirpath);
+    if (!realdir) {
         fprintf(stderr, "%s: %s\n",
-                dirpath, strerror(errno));
+                realdirpath, strerror(errno));
         exit(EXIT_FAILURE);
     }
 }
@@ -52,12 +52,12 @@ int main(int argc, char *argv[])
     set_root_directory(argv[1]);
     argv++; argc--;
     LOG("\n");
-    LOG("starting grepfs in %s\n", dirpath);
+    LOG("starting grepfs in %s\n", realdirpath);
     err = fuse_main(argc, argv, &tag_oper, NULL);
     LOG("stopped grepfs with return code %d\n", err);
 
-    closedir(dir);
-    free(dirpath);
+    closedir(realdir);
+    free(realdirpath);
 
     LOG("\n");
     return err;
