@@ -26,6 +26,15 @@
 DIR *realdir;
 char *realdirpath;
 
+static char *append_dir(const char *dir, const char *file)
+{
+    char *str;
+    if (asprintf(&str, "%s/%s", dir, file) < 0) {
+        ERROR("asprint allocation failed: %s\n", strerror(errno));
+    }
+    return str;
+}
+
 /*************************
  * File operations
  */
@@ -53,7 +62,7 @@ static int tag_getattr(const char *user_path, struct stat *stbuf)
     char *realpath = tag_realpath(user_path);
     int res;
 
-    LOG("\ngetattr '%s'\n", user_path);
+    LOG("getattr '%s'\n", user_path);
     struct hash_table *selected_tags;
     char *path = strdup(user_path);
     char *dirpath = dirname(path);
@@ -72,25 +81,34 @@ static int tag_getattr(const char *user_path, struct stat *stbuf)
         } else {
             res = -ENOENT;
         }
+        free(path);
     } else {
         if (ht_entry_count(selected_tags) > 0) {
-            struct file *f = file_get_or_create(realpath);
+            char *path = strdup(user_path);
+            char *filename = basename(path);
+            struct file *f = file_get_or_create(filename);
             bool ok = true;
             void check_tags(const char *name, void *value, void *arg) {
                 bool *ok = arg;
                 struct tag *t = value;
-                if (!ht_has_entry(f->tags, t->value))
-                *ok = false;
+                if (t == INVALID_TAG || !ht_has_entry(f->tags, t->value))
+                    *ok = false;
             }
+            DBG("selected tags size: %d\n", ht_entry_count(selected_tags));
             ht_for_each(selected_tags, &check_tags, &ok);
             if (!ok)
                 res = -ENOENT;
         }
     }
-
-    LOG("getattr returning %s\n\n", strerror(-res));
+    free(path);
+    LOG("getattr returning '%s'\n", strerror(-res));
     free(realpath);
     return res;
+}
+
+static int tag_unlink(const char *user_path)
+{
+    return -EPERM;
 }
 
 /* list files within directory */
@@ -108,13 +126,15 @@ static int tag_readdir(
     rewinddir(realdir);
     while ((dirent = readdir(realdir)) != NULL) {
         struct stat stbuf;
-        /* only files whose contents matches tags in path */
-        res = tag_getattr(dirent->d_name, &stbuf);
-        if (res < 0)
-            continue;
-
         /* only list files, don't list directories */
         if (dirent->d_type == DT_DIR)
+            continue;
+
+        /* only files whose contents matches tags in path */
+        char *virtpath = append_dir(user_path, dirent->d_name);
+        res = tag_getattr(virtpath, &stbuf);
+        free(virtpath);
+        if (res < 0)
             continue;
         filler(buf, dirent->d_name, NULL, 0);
     }
@@ -123,11 +143,14 @@ static int tag_readdir(
 
     struct list *tagl = tag_list();
     unsigned s = list_size(tagl);
-    DEBUGMSG("tag list size: %u\n", s);
+    DBG("tag list size: %u\n", s);
     
     for (int i = 1; i <= s; ++i) {
         struct tag *t = list_get(tagl, i);
+        DBG("t->value = %s\n", t->value);
+        DBG("selected size: %d\n", ht_entry_count(selected_tags));
         if (!ht_has_entry(selected_tags, t->value)) {
+            DBG("on passe par la avec t->value = %s!\n", t->value);
             filler(buf, t->value, NULL, 0);
         }
     }
@@ -155,7 +178,7 @@ int tag_read(
         goto out_with_fd;
     }
     res = read(fd, buffer, len);
-    if (res < len) {
+    if (res >= 0 && res < len) {
         for (int i = res; i < len; ++i) {
             buffer[i] = 0;
         }
@@ -167,7 +190,7 @@ int tag_read(
     close(fd);
   out:
     if (res < 0)
-        LOG("read returning %s\n", strerror(-res));
+        LOG("read returning '%s'\n", strerror(-res));
     else
         LOG("read returning success (read %d)\n", res);
     free(realpath);
@@ -178,6 +201,7 @@ struct fuse_operations tag_oper = {
     .getattr = tag_getattr,
     .readdir = tag_readdir,
     .read = tag_read,
+    .unlink = tag_unlink,
 };
 
 /**************************

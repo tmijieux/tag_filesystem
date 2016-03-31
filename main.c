@@ -11,6 +11,8 @@
 #include <locale.h>
 
 #include "log.h"
+#include "tag.h"
+#include "file.h"
 
 extern struct fuse_operations tag_oper;
 extern DIR *realdir;
@@ -38,6 +40,22 @@ static void init_locale(void)
     setlocale(LC_ALL, "");
 }
 
+
+#ifdef DEBUG
+static void manual_tag_for_test_purpose_only(void)
+{
+    struct file *f = file_get_or_create("log.c");
+    struct tag *t = tag_get("paysage");
+    tag_file(t, f);
+
+    f = file_get_or_create("main.c");
+    tag_file(t, f);
+    t = tag_get("nuit");
+    tag_file(t, f);
+    
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     int err;
@@ -51,6 +69,10 @@ int main(int argc, char *argv[])
      */
     set_root_directory(argv[1]);
     argv++; argc--;
+    #ifdef DEBUG
+    manual_tag_for_test_purpose_only();
+    #endif
+    
     LOG("\n");
     LOG("starting grepfs in %s\n", realdirpath);
     err = fuse_main(argc, argv, &tag_oper, NULL);

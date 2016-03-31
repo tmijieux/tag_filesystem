@@ -10,7 +10,6 @@
 #include "cutil/list.h"
 #include "cutil/string2.h"
 
-#define SENTINEL ((void*) 0XDEADBEEFCAFEBABE)
 
 static struct hash_table *tags;
 
@@ -27,7 +26,7 @@ static void tag_init(void)
 
 static struct tag *tag_new(const char *value)
 {
-    struct tag *t = malloc(sizeof*t);
+    struct tag *t = calloc(sizeof*t, 1);
     t->value = strdup(value);
     t->file_list = list_new(0);
     return t;
@@ -51,12 +50,12 @@ struct tag* tag_get(const char *value)
     if (ht_get_entry(tags, value, &t) >= 0) {
         return t;
     } 
-    return NULL;
+    return INVALID_TAG;
 }
 
 bool tag_exist(const char *value)
 {
-    return (NULL != tag_get(value));
+    return (INVALID_TAG != tag_get(value));
 }
 
 void tag_add_file(struct tag *t, struct file *f)
@@ -79,15 +78,21 @@ void compute_selected_tags(
     int tag_count = string_split(dirpath, "/", &tags);
     
     for (i = 0; i < tag_count; ++i) {
+        DBG("selected tag: %s\n", tags[i]);
         ht_add_entry(selected_tags, tags[i], tag_get(tags[i]));
-        DEBUGMSG("selected tag: %s\n", tags[i]);
         free(tags[i]);
     }
     free(tags);
-    DEBUGMSG("selected tag: %d\n", i);
+    DBG("selected tag: %d\n", i);
 }
 
 struct list *tag_list(void)
 {
     return ht_to_list(tags);
+}
+
+void tag_file(struct tag *t, struct file *f)
+{
+    file_add_tag(f, t);
+    tag_add_file(t, f);
 }

@@ -13,29 +13,35 @@
 
 #define _(X) gettext((X))
 
-void rz_error(
+void print_error(
+    const char *filename, int line,
+    const char *pretty_function, const char *format, ...);
+void print_log(
     const char *filename, int line,
     const char *pretty_function, const char *format, ...);
 
 #ifndef ERROR_H_IMPLEMENTATION__
-# define rz_error(x, ...)  rz_error(                                    \
+# define print_error(x, ...)  print_error(                                    \
+    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
+
+# define print_log(x, ...)  print_log(                                    \
     __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
 #endif
 
 #ifdef DEBUG
 
-void rz_debug(
+void print_debug(
     const char *filename, int line,
     const char *pretty_function,const char *format, ...);
 
 # ifndef ERROR_H_IMPLEMENTATION__
-#  define rz_debug(x, ...)  rz_debug(                                   \
+#  define print_debug(x, ...)  print_debug(                                   \
     __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
 # endif
 
 #else
 
-# define rz_debug(f, ...)
+# define print_debug(f, ...)
 
 #endif
 
