@@ -47,7 +47,7 @@ char *tag_realpath(const char *user_path)
      */
     path = strdup(user_path);
     file = basename(path);
-    
+
     /* prepend dirpath since the daemon runs in '/' */
     if (asprintf(&realpath, "%s/%s", realdirpath, file) < 0) {
         ERROR("asprintf: allocation failed: %s", strerror(errno));
@@ -75,7 +75,7 @@ static int tag_getattr(const char *user_path, struct stat *stbuf)
            directory and stat the main directory instead */
         char *path = strdup(user_path);
         char *filename = basename(path);
-        
+
         if (tag_exist(filename) && !ht_has_entry(selected_tags, filename)) {
             res = stat(realdirpath, stbuf);
         } else {
@@ -122,7 +122,7 @@ static int tag_readdir(
 
     LOG("\n\nreaddir '%s'\n", user_path);
     compute_selected_tags(user_path, &selected_tags);
-    
+
     rewinddir(realdir);
     while ((dirent = readdir(realdir)) != NULL) {
         struct stat stbuf;
@@ -144,7 +144,7 @@ static int tag_readdir(
     struct list *tagl = tag_list();
     unsigned s = list_size(tagl);
     DBG("tag list size: %u\n", s);
-    
+
     for (int i = 1; i <= s; ++i) {
         struct tag *t = list_get(tagl, i);
         DBG("t->value = %s\n", t->value);
@@ -159,7 +159,7 @@ static int tag_readdir(
 }
 
 /* read the content of the file */
-int tag_read(
+static int tag_read(
     const char *path, char *buffer, size_t len,
     off_t off, struct fuse_file_info *fi)
 {
@@ -197,11 +197,98 @@ int tag_read(
     return res;
 }
 
+static int tag_write(
+    const char *path, const char *buffer, size_t len,
+    off_t off, struct fuse_file_info *fi)
+{
+    char *realpath = tag_realpath(path);
+    int res;
+
+    LOG("write '%s' for %ld bytes starting at offset %ld\n",
+        path, len, off);
+
+    int fd = open(realpath, O_WRONLY);
+    if (fd < 0) {
+        res = -errno;
+        goto out_with_fd;
+    }
+    if (lseek(fd, off, SEEK_SET) < 0) {
+        res = -errno;
+        goto out_with_fd;
+    }
+    res = write(fd, buffer, len);
+    if (res < 0) {
+        res = -errno;
+    }
+  out_with_fd:
+    close(fd);
+  out:
+    if (res < 0)
+        LOG("write returning '%s'\n", strerror(-res));
+    else
+        LOG("write returning success (wrote %d)\n", res);
+    free(realpath);
+    return res;
+}
+
+static int tag_mknod(const char *user_path, mode_t mode, dev_t device)
+{
+    int res;
+    char *realpath = tag_realpath(user_path);
+    res = mknod(realpath, mode, device);
+    free(realpath);
+    return res;
+}
+
+static int tag_truncate(const char *user_path, off_t length)
+{
+    int res;
+    char *realpath = tag_realpath(user_path);
+    res = truncate(realpath, length);
+    free(realpath);
+    return res;
+}
+
+static int tag_chmod(const char *user_path, mode_t mode)
+{
+    int res;
+    char *realpath = tag_realpath(user_path);
+    res = chmod(realpath, mode);
+    free(realpath);
+    return res;
+}
+
+static int tag_chown(const char *user_path, uid_t user, gid_t group)
+{
+    int res;
+    char *realpath = tag_realpath(user_path);
+    res = chown(realpath, user, group);
+    free(realpath);
+    return res;
+}
+
+static int tag_utime(const char *user_path, struct utimbuf *times)
+{
+    int res;
+    char *realpath = tag_realpath(user_path);
+    res = utime(realpath, times);
+    free(realpath);
+    return res;
+}
+
 struct fuse_operations tag_oper = {
     .getattr = tag_getattr,
     .readdir = tag_readdir,
+
     .read = tag_read,
+    .write = tag_write,
+
     .unlink = tag_unlink,
+    .mknod = tag_mknod,
+    .truncate = tag_truncate,
+    .chmod = tag_chmod,
+    .chown = tag_chown,
+    .utime = tag_utime,
 };
 
 /**************************
