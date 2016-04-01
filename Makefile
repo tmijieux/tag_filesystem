@@ -26,14 +26,17 @@ $(TARGET): $(OBJ)
 	gcc -c $(CFLAGS) $*.c -o $*.o
 	gcc -MM $(CFLAGS) $*.c > $*.d
 
+mnt: 
+	mkdir -p mnt/
+
 clean: 
 	$(RM) $(OBJ) $(DEP) *.log *.o
 	make -C cutil clean
 
-restart: stop kill tagfs 
+restart: mnt stop kill tagfs 
 	./tagfs . mnt -f -d -s
 
-debug: tagfs stop
+debug: mnt tagfs stop
 	gdb --args ./tagfs . mnt -f -d -s
 
 stop:
