@@ -52,7 +52,6 @@ static void manual_tag_for_test_purpose_only(void)
     tag_file(t, f);
     t = tag_get("nuit");
     tag_file(t, f);
-    
 }
 #endif
 

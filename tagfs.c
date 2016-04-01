@@ -1,7 +1,3 @@
-/*
- * Copyright (c) 2014-2015 Inria. All rights reserved.
- */
-
 #define _GNU_SOURCE
 #define FUSE_USE_VERSION 26
 
@@ -26,6 +22,22 @@
 DIR *realdir;
 char *realdirpath;
 
+static char *basenamedup(const char *dir)
+{
+    char *res, *tmp = strdup(dir);
+    res = strdup(basename(tmp));
+    free(tmp);
+    return res;
+}
+
+static char *dirnamedup(const char *dir)
+{
+    char *res, *tmp = strdup(dir);
+    res = strdup(dirname(tmp));
+    free(tmp);
+    return res;
+}
+
 static char *append_dir(const char *dir, const char *file)
 {
     char *str;
@@ -41,66 +53,73 @@ static char *append_dir(const char *dir, const char *file)
 
 char *tag_realpath(const char *user_path)
 {
-    char *realpath, *path, *file;
+    char *realpath, *file;
     /* remove directory names before the actual filename
      * so that grepped file '/foo/bar/toto' becomes 'toto'
      */
-    path = strdup(user_path);
-    file = basename(path);
+    file = basenamedup(user_path);
 
     /* prepend dirpath since the daemon runs in '/' */
     if (asprintf(&realpath, "%s/%s", realdirpath, file) < 0) {
         ERROR("asprintf: allocation failed: %s", strerror(errno));
     }
-    free(path);
+    free(file);
     return realpath;
+}
+
+static bool file_matches_tags(
+    const char *filename, struct hash_table *selected_tags)
+{
+    struct file *f = file_get_or_create(filename);
+    bool match = true;
+    void check_tags(const char *name, void *value, void *arg) {
+        bool *match = arg;
+        struct tag *t = value;
+        if (t == INVALID_TAG || !ht_has_entry(f->tags, t->value))
+            *match = false;
+    }
+    DBG("selected tags size: %d\n", ht_entry_count(selected_tags));
+    ht_for_each(selected_tags, &check_tags, &match);
+    return match;
 }
 
 /* get attributes */
 static int tag_getattr(const char *user_path, struct stat *stbuf)
 {
-    char *realpath = tag_realpath(user_path);
     int res;
-
-    LOG("getattr '%s'\n", user_path);
+    char *realpath = tag_realpath(user_path);
     struct hash_table *selected_tags;
-    char *path = strdup(user_path);
-    char *dirpath = dirname(path);
+    
+    LOG("getattr '%s'\n", user_path);
+
+    char *dirpath, *filename;
+    dirpath = dirnamedup(user_path);
+    filename = basenamedup(user_path);
     compute_selected_tags(dirpath, &selected_tags);
     
     /* try to stat the actual file */
-    if ((res = stat(realpath, stbuf)) < 0) {
+    if ((res = stat(realpath, stbuf)) < 0 || S_ISDIR(stbuf->st_mode)) {
         LOG("error ::%s :: %s\n", realpath, strerror(errno));
         /* if the file doesn't exist, check if it's a tag
            directory and stat the main directory instead */
-        char *path = strdup(user_path);
-        char *filename = basename(path);
-
-        if (tag_exist(filename) && !ht_has_entry(selected_tags, filename)) {
+        if (!strcmp(user_path, "/") ||
+            (tag_exist(filename) &&
+             !ht_has_entry(selected_tags, filename))) {
             res = stat(realdirpath, stbuf);
         } else {
             res = -ENOENT;
         }
-        free(path);
     } else {
+        /* if the file exist check that it have the selected tags*/
         if (ht_entry_count(selected_tags) > 0) {
-            char *path = strdup(user_path);
-            char *filename = basename(path);
-            struct file *f = file_get_or_create(filename);
-            bool ok = true;
-            void check_tags(const char *name, void *value, void *arg) {
-                bool *ok = arg;
-                struct tag *t = value;
-                if (t == INVALID_TAG || !ht_has_entry(f->tags, t->value))
-                    *ok = false;
-            }
-            DBG("selected tags size: %d\n", ht_entry_count(selected_tags));
-            ht_for_each(selected_tags, &check_tags, &ok);
-            if (!ok)
+            if (!file_matches_tags(filename, selected_tags)) {
                 res = -ENOENT;
+            }
         }
     }
-    free(path);
+    free(filename);
+    free(dirpath);
+    
     LOG("getattr returning '%s'\n", strerror(-res));
     free(realpath);
     return res;
@@ -111,18 +130,11 @@ static int tag_unlink(const char *user_path)
     return -EPERM;
 }
 
-/* list files within directory */
-static int tag_readdir(
-    const char *user_path, void *buf, fuse_fill_dir_t filler,
-    off_t offset, struct fuse_file_info *fi)
+static void readdir_list_files(
+    void *buf, const char *user_path, fuse_fill_dir_t filler)
 {
     struct dirent *dirent;
-    int res = 0;
-    struct hash_table *selected_tags;
-
-    LOG("\n\nreaddir '%s'\n", user_path);
-    compute_selected_tags(user_path, &selected_tags);
-
+    
     rewinddir(realdir);
     while ((dirent = readdir(realdir)) != NULL) {
         struct stat stbuf;
@@ -132,15 +144,18 @@ static int tag_readdir(
 
         /* only files whose contents matches tags in path */
         char *virtpath = append_dir(user_path, dirent->d_name);
-        res = tag_getattr(virtpath, &stbuf);
+        int res = tag_getattr(virtpath, &stbuf);
         free(virtpath);
         if (res < 0)
             continue;
         filler(buf, dirent->d_name, NULL, 0);
     }
+}
 
+static void readdir_list_tags(
+    void *buf, struct hash_table *selected_tags, fuse_fill_dir_t filler)
+{
     // afficher les tags pas encore selectionné
-
     struct list *tagl = tag_list();
     unsigned s = list_size(tagl);
     DBG("tag list size: %u\n", s);
@@ -154,8 +169,25 @@ static int tag_readdir(
             filler(buf, t->value, NULL, 0);
         }
     }
+}
+
+/* list files within directory */
+static int tag_readdir(
+    const char *user_path, void *buf, fuse_fill_dir_t filler,
+    off_t offset, struct fuse_file_info *fi)
+{
+    struct hash_table *selected_tags;
+    int res = 0;
+    
+    LOG("\n\nreaddir '%s'\n", user_path);
+    
+    compute_selected_tags(user_path, &selected_tags);
+    readdir_list_tags(buf, selected_tags, filler);
+    readdir_list_files(buf, user_path, filler);
+
     LOG("readdir returning %s\n\n\n", strerror(-res));
-    return 0;
+    
+    return res;
 }
 
 /* read the content of the file */
