@@ -22,6 +22,15 @@
 DIR *realdir;
 char *realdirpath;
 
+static int get_character_count(const char *str, char c)
+{
+    int n = 0;
+    for (int i = 0; str[i]; ++i)
+        if (str[i] == c)
+            ++n;
+    return n;
+}
+
 static char *basenamedup(const char *dir)
 {
     char *res, *tmp = strdup(dir);
@@ -145,13 +154,36 @@ static int getattr_intra(
         if (ht_entry_count(selected_tags) > 0) {
             if (!file_matches_tags(filename, selected_tags)) {
                 res = -ENOENT;
+            } else {
+                /* let our file appear as a symlink */
+                stbuf->st_mode &= ~S_IFMT;
+                stbuf->st_mode |= S_IFLNK;
             }
         }
     }
-    LOG("getattr returning '%s'\n", strerror(-res));
     return res;
 }
 
+int tag_readlink(const char *user_path, char *buf, size_t size)
+{
+    int slash_count;
+    char *to, *virtdirpath;
+    
+    to = basenamedup(user_path);
+    virtdirpath = dirnamedup(user_path);
+    slash_count = get_character_count(virtdirpath, '/');
+
+    for (int i = 0; i < slash_count; ++i) {
+        char *tmp = to;
+        to = append_dir("..", tmp);
+        free(tmp);
+    }
+    
+    strncpy(buf, to, size);
+    free(virtdirpath);
+    free(to);
+    return 0;
+}
 
 /* get attributes */
 int tag_getattr(const char *user_path, struct stat *stbuf)
@@ -159,7 +191,9 @@ int tag_getattr(const char *user_path, struct stat *stbuf)
     int res;
     struct hash_table *selected_tags;
     char *dirpath, *filename, *realpath;
-
+    
+    LOG("getattr '%s'\n", user_path);
+    
     realpath = tag_realpath(user_path);
     filename = basenamedup(user_path);
     dirpath = dirnamedup(user_path);
@@ -168,11 +202,12 @@ int tag_getattr(const char *user_path, struct stat *stbuf)
     res = getattr_intra(
         user_path, stbuf, selected_tags, realpath, filename);
 
-    LOG("getattr '%s'\n", user_path);
+    LOG("getattr returning '%s'\n", strerror(-res));
 
     free(filename);
     free(realpath);
     free(dirpath);
+    
     return res;
 }
 
@@ -186,7 +221,84 @@ int tag_fgetattr(
 
 int tag_unlink(const char *user_path)
 {
-    return -EPERM;
+    int res = 0;
+    int slash_count = get_character_count(user_path, '/');
+        
+    LOG("unlink '%s'\n", user_path);
+    if (slash_count <= 1) {
+        res =  -EPERM;
+        goto end;
+    }
+    struct file *f;    
+    char *dirpath, *filename;
+    struct hash_table *selected_tags;
+    
+    filename = basenamedup(user_path);
+    f = file_get(filename);
+    if (NULL == f) {
+        res = -ENOENT;
+        free(filename);
+        goto end;
+    }
+    
+    dirpath = dirnamedup(user_path);
+    compute_selected_tags(dirpath, &selected_tags);
+
+    void remove_tag(const char *filename, void *tag, void *file)
+    {
+        untag_file(tag, file);
+    }
+    ht_for_each(selected_tags, &remove_tag, f);
+
+    free(dirpath);
+    free(filename);
+    ht_free(selected_tags);
+  end:
+    return res;
+}
+
+int tag_rmdir(const char *user_path)
+{
+    int res = 0;
+    int slash_count = get_character_count(user_path, '/');
+    if (slash_count > 1) {
+        res =  -EPERM;
+        goto end;
+    }
+    
+    char *tag = basenamedup(user_path);
+    struct tag *t = tag_get(tag);
+    if (NULL == t) {
+        res = -ENOENT;
+    } else {
+        tag_remove(t);
+    }
+    free(tag);
+  end:
+    return res;
+}
+
+int tag_mkdir(const char *user_path, mode_t mode)
+{
+    int res = 0;
+    int slash_count = get_character_count(user_path, '/');
+    if (slash_count > 1) {
+        res =  -EPERM;
+        goto end;
+    }
+    char *filename = basenamedup(user_path);
+    struct tag *t;
+    t = tag_get(filename);
+    if (INVALID_TAG != t) {
+        res = -EEXIST;
+        free(filename);
+        goto end;
+    }
+    tag_get_or_create(filename);
+
+    free(filename);
+  end:
+    return res;
 }
 
 static void readdir_list_files(
@@ -317,7 +429,13 @@ int tag_mknod(const char *user_path, mode_t mode, dev_t device)
 {
     int res;
     char *realpath = tag_realpath(user_path);
-    res = mknod(realpath, mode, device);
+    if (access(realpath, F_OK) == 0) {
+        /* this condition allow user to have a more comprehensible error message
+           when a (hidden)corresponding directory exist in the root directory */
+        res = -EEXIST;
+    } else {
+        res = mknod(realpath, mode, device);
+    }
     free(realpath);
     return res;
 }
@@ -358,6 +476,38 @@ int tag_utime(const char *user_path, struct utimbuf *times)
     return res;
 }
 
+int tag_symlink(const char *user_path, const char *tags)
+{
+    int res = 0;
+    struct hash_table *selected_tags, *emptyhash = ht_create(0, NULL);
+    struct stat stbuf;
+    char *filename, *realpath;
+    struct file *f;
+    
+    LOG("symlink file:'%s' - tags:'%s'\n", user_path, tags);
+    
+    realpath = tag_realpath(user_path);
+    filename = basenamedup(user_path);
+    tags = dirnamedup(tags);
+    compute_selected_tags(tags, &selected_tags);
+    
+    res = getattr_intra(
+        user_path, &stbuf, emptyhash, realpath, filename);
+    if (res < 0)
+        return res;
+    f = file_get_or_create(filename);
+    void tag_this_file(const char *tagname, void *tag, void* file)
+    {
+        struct file *f = file;
+        struct tag *t = tag;
+        tag_file(t, f);
+    }
+    ht_for_each(selected_tags, &tag_this_file, f);
+
+    LOG("symlink returning '%s'\n", strerror(-res));
+    return res;
+}
+
 struct fuse_operations tag_oper = {
     .open = tag_open,
     .release = tag_release,
@@ -369,8 +519,14 @@ struct fuse_operations tag_oper = {
     .readdir = tag_readdir,
     .write = tag_write,
 
+    .symlink = tag_symlink,
+    .readlink = tag_readlink,
+
     .unlink = tag_unlink,
+    .rmdir = tag_rmdir,
+    
     .mknod = tag_mknod,
+    .mkdir = tag_mkdir,
     .truncate = tag_truncate,
     .chmod = tag_chmod,
     .chown = tag_chown,

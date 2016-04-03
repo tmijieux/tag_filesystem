@@ -35,5 +35,6 @@ struct file {
 struct file* file_get_or_create(const char *value);
 struct file* file_get(const char *value);
 void file_add_tag(struct file *f, struct tag *t);
-
+void file_remove_tag(struct file *f, struct tag *t);
+    
 #endif //FILE_H

@@ -19,6 +19,11 @@ void file_add_tag(struct file *f, struct tag *t)
     ht_add_entry(f->tags, t->value, t);
 }
 
+void file_remove_tag(struct file *f, struct tag *t)
+{
+    ht_remove_entry(f->tags, t->value);
+}
+
 static struct file *file_new(const char *name)
 {
     struct file *t = calloc(sizeof*t, 1);

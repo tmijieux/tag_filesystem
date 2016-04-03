@@ -63,6 +63,24 @@ void tag_add_file(struct tag *t, struct file *f)
     list_add(t->file_list, f);
 }
 
+void tag_remove_file(struct tag *t, struct file *f)
+{
+    list_remove_value(t->file_list, f);
+}
+
+void tag_remove(struct tag *t)
+{
+    int s = list_size(t->file_list);
+    for (int i = 1; i <= s; ++i) {
+        struct file *f;
+        
+        f = list_get(t->file_list, i);
+        file_remove_tag(f, t);
+    }
+
+    ht_remove_entry(tags, t->value);
+}
+
 void compute_selected_tags(
     const char *dirpath, struct hash_table **ret)
 {
@@ -95,4 +113,10 @@ void tag_file(struct tag *t, struct file *f)
 {
     file_add_tag(f, t);
     tag_add_file(t, f);
+}
+
+void untag_file(struct tag *t, struct file *f)
+{
+    file_remove_tag(f, t);
+    tag_remove_file(t, f);
 }
