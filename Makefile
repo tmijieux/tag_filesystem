@@ -33,12 +33,12 @@ clean:
 	$(RM) $(OBJ) $(DEP) *.log *.o
 	make -C cutil clean
 
-start: tagfs
+start: mnt tagfs
 	./tagfs . mnt -f -d -s
 
-restart: mnt stop kill start
+restart: stop kill start
 
-debug: mnt tagfs stop
+debug: tagfs stop
 	gdb --args ./tagfs . mnt -f -d -s
 
 stop:

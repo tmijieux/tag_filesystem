@@ -12,7 +12,6 @@ __attribute__((constructor))
 static void file_init(void)
 {
     files = ht_create(0, NULL);
-
 }
 
 void file_add_tag(struct file *f, struct tag *t)
@@ -33,9 +32,9 @@ struct file* file_get_or_create(const char *value)
     struct file *t;
     if (ht_get_entry(files, value, &t) >= 0) {
         return t;
-    } 
+    }
     t = file_new(value);
-    
+
     ht_add_entry(files, value, t);
     return t;
 }
@@ -45,7 +44,7 @@ struct file* file_get(const char *value)
     struct file *t;
     if (ht_get_entry(files, value, &t) >= 0) {
         return t;
-    } 
+    }
     return NULL;
 }
 

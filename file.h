@@ -2,8 +2,23 @@
 #define FILE_H
 
 struct file;
+struct file_descriptor;
 
 #include "cutil/hash_table.h"
+#include <stdbool.h>
+
+struct filedes {
+    struct file *file;
+    bool is_directory;
+    int fd;
+
+    struct hash_table *selected_tags;
+    const char *virtpath;
+    const char *virtdirpath;
+
+    const char *realpath;
+};
+
 
 struct file {
     char *name;
