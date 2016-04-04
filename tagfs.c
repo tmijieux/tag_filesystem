@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #define FUSE_USE_VERSION 26
 
 #include <fuse.h>
@@ -16,68 +15,16 @@
 
 #include "tag.h"
 #include "log.h"
+#include "filedes.h"
+#include "util.h"
+
 #include "cutil/string2.h"
 #include "cutil/hash_table.h"
 #include "cutil/list.h"
 
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
-DIR *realdir;
-char *realdirpath;
 
-static int get_character_count(const char *str, char c)
-{
-    int n = 0;
-    for (int i = 0; str[i]; ++i)
-        if (str[i] == c)
-            ++n;
-    return n;
-}
-
-static char *basenamedup(const char *dir)
-{
-    char *res, *tmp = strdup(dir);
-    res = strdup(basename(tmp));
-    free(tmp);
-    return res;
-}
-
-static char *dirnamedup(const char *dir)
-{
-    char *res, *tmp = strdup(dir);
-    res = strdup(dirname(tmp));
-    free(tmp);
-    return res;
-}
-
-static char *append_dir(const char *dir, const char *file)
-{
-    char *str;
-    if (asprintf(&str, "%s/%s", dir, file) < 0) {
-        ERROR("asprint allocation failed: %s\n", strerror(errno));
-    }
-    return str;
-}
-
-/*************************
- * File operations
- */
-
-char *tag_realpath(const char *user_path)
-{
-    char *realpath, *file;
-    /* remove directory names before the actual filename
-     * so that grepped file '/foo/bar/toto' becomes 'toto'
-     */
-    file = basenamedup(user_path);
-
-    /* prepend dirpath since the daemon runs in '/' */
-    if (asprintf(&realpath, "%s/%s", realdirpath, file) < 0) {
-        ERROR("asprintf: allocation failed: %s", strerror(errno));
-    }
-    free(file);
-    return realpath;
-}
 
 static bool file_matches_tags(
     const char *filename, struct hash_table *selected_tags)
@@ -99,42 +46,16 @@ static bool file_matches_tags(
 int tag_open(const char *user_path, struct fuse_file_info *fi)
 {
     int res = 0;
-    struct filedes *fd = calloc(sizeof*fd, 1);
-
-    fd->realpath = tag_realpath(user_path);
-    fd->fd = open(fd->realpath, fi->flags);
-    if (fd->fd < 0) {
-        res = -errno;
-        free((char*)fd->realpath);
-    } else {
-        fd->virtpath = strdup(user_path);
-        fd->virtdirpath = dirnamedup(user_path);
-        fd->is_directory = false;
-        fd->is_tagfile = false;
-        char *name = basenamedup(user_path);
-        if (!strcmp(name, ".tag"))
-            fd->is_tagfile = true;
-            
-        fd->file = file_get_or_create(name);
-        free(name);
-        compute_selected_tags(fd->virtdirpath, &fd->selected_tags);
-    }
-
+    struct filedes *fd;
+    res = filedes_create(user_path, fi->flags, &fd);
     fi->fh = (uint64_t) fd;
-
     return res;
 }
 
 int tag_release(const char *user_path, struct fuse_file_info *fi)
 {
     struct filedes *fd = (struct filedes*) fi->fh;
-    free((char*) fd->realpath);
-    free((char*) fd->virtpath);
-    free((char*) fd->virtdirpath);
-    ht_free(fd->selected_tags);
-    int res = close(fd->fd);
-    free(fd);
-    return res;
+    return filedes_delete(fd);
 }
 
 static int getattr_intra(

@@ -1,7 +1,5 @@
-#define _GNU_SOURCE
 #define FUSE_USE_VERSION 26
 
-#include <fuse.h>
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -13,10 +11,7 @@
 #include "log.h"
 #include "tag.h"
 #include "file.h"
-
-extern struct fuse_operations tag_oper;
-extern DIR *realdir;
-extern char *realdirpath;
+#include "tagfs.h"
 
 static void set_root_directory(const char *path)
 {
