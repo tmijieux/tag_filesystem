@@ -12,21 +12,22 @@ extern DIR *realdir;
 extern char *realdirpath;
 
 struct filedes {
-    struct file *file;
-    bool is_directory;
-    bool is_tagfile;
-    int fd;
+    int flags;
+    const char *realpath;
 
-    struct hash_table *selected_tags;
     const char *virtpath;
     const char *virtdirpath;
+    const char *filename;
 
-    const char *realpath;
+    bool is_directory;
+    bool is_tagfile;
+
+    struct hash_table *selected_tags;
 };
 
 char *tag_realpath(const char *user_path);
 
-int filedes_create(const char *user_path, int flags, struct filedes **fd__);
-int filedes_delete(struct filedes *fd);
+struct filedes *filedes_create(const char *user_path);
+void filedes_delete(struct filedes *fd);
 
 #endif //FILEDES_H

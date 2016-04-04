@@ -1,30 +1,10 @@
-#define FUSE_USE_VERSION 26
-
-#include <fuse.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <sys/types.h>
-#include <dirent.h>
-#include <libgen.h>
-#include <limits.h>
+#include "sys.h"
+#include "util.h"
+#include "fuse.h"
 
 #include "tag.h"
-#include "log.h"
 #include "filedes.h"
-#include "util.h"
-
-#include "cutil/string2.h"
-#include "cutil/hash_table.h"
-#include "cutil/list.h"
-
-
-#define min(a, b) ((a) < (b) ? (a) : (b))
-
+#include "file.h"
 
 static bool file_matches_tags(
     const char *filename, struct hash_table *selected_tags)
@@ -32,13 +12,13 @@ static bool file_matches_tags(
     struct file *f = file_get_or_create(filename);
     bool match = true;
     /* viva el gcc: */
-    void check_tags(const char *name, void *value, void *arg) {
-        bool *match = arg;
-        struct tag *t = value;
+    void check_tags(const char *name, void *tag, void *match_) {
+        bool *match = match_;
+        struct tag *t = tag;
         if (t == INVALID_TAG || !ht_has_entry(f->tags, t->value))
             *match = false;
     }
-    DBG("selected tags size: %d\n", ht_entry_count(selected_tags));
+    print_debug("selected tags size: %d\n", ht_entry_count(selected_tags));
     ht_for_each(selected_tags, &check_tags, &match);
     return match;
 }
@@ -46,8 +26,9 @@ static bool file_matches_tags(
 int tag_open(const char *user_path, struct fuse_file_info *fi)
 {
     int res = 0;
-    struct filedes *fd;
-    res = filedes_create(user_path, fi->flags, &fd);
+    struct filedes *fd = filedes_create(user_path);
+    struct file *f = file_get_or_create(fd->filename);
+    res = file_open(f, fi->flags);
     fi->fh = (uint64_t) fd;
     return res;
 }
@@ -55,7 +36,10 @@ int tag_open(const char *user_path, struct fuse_file_info *fi)
 int tag_release(const char *user_path, struct fuse_file_info *fi)
 {
     struct filedes *fd = (struct filedes*) fi->fh;
-    return filedes_delete(fd);
+    struct file *f = file_get_or_create(fd->filename);
+    file_close(f);
+    filedes_delete(fd);
+    return 0;
 }
 
 static int getattr_intra(
@@ -90,28 +74,6 @@ static int getattr_intra(
     }
     return res;
 }
-/*
-int tag_readlink(const char *user_path, char *buf, size_t size)
-{
-    int slash_count;
-    char *to, *virtdirpath;
-    
-    to = basenamedup(user_path);
-    virtdirpath = dirnamedup(user_path);
-    slash_count = get_character_count(virtdirpath, '/');
-
-    for (int i = 0; i < slash_count; ++i) {
-        char *tmp = to;
-        to = append_dir("..", tmp);
-        free(tmp);
-    }
-
-    strncpy(buf, to, size);
-    free(virtdirpath);
-    free(to);
-    return 0;
-}
-*/
 
 /* get attributes */
 int tag_getattr(const char *user_path, struct stat *stbuf)
@@ -119,9 +81,9 @@ int tag_getattr(const char *user_path, struct stat *stbuf)
     int res;
     struct hash_table *selected_tags;
     char *dirpath, *filename, *realpath;
-    
+
     LOG("getattr '%s'\n", user_path);
-    
+
     realpath = tag_realpath(user_path);
     filename = basenamedup(user_path);
     dirpath = dirnamedup(user_path);
@@ -135,7 +97,7 @@ int tag_getattr(const char *user_path, struct stat *stbuf)
     free(filename);
     free(realpath);
     free(dirpath);
-    
+
     return res;
 }
 
@@ -144,23 +106,22 @@ int tag_fgetattr(
 {
     struct filedes *fd = (struct filedes*)fi->fh;
     return getattr_intra(
-        user_path, stbuf, fd->selected_tags, fd->realpath, fd->file->name);
+        user_path, stbuf, fd->selected_tags, fd->realpath, fd->filename);
 }
 
 int tag_unlink(const char *user_path)
 {
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
-        
+
     LOG("unlink '%s'\n", user_path);
-    if (slash_count <= 1) {
-        res =  -EPERM;
-        goto end;
-    }
-    struct file *f;    
+    if (slash_count <= 1)
+        return -EPERM;
+
+    struct file *f;
     char *dirpath, *filename;
     struct hash_table *selected_tags;
-    
+
     filename = basenamedup(user_path);
     f = file_get(filename);
     if (NULL == f) {
@@ -168,7 +129,7 @@ int tag_unlink(const char *user_path)
         free(filename);
         goto end;
     }
-    
+
     dirpath = dirnamedup(user_path);
     compute_selected_tags(dirpath, &selected_tags);
 
@@ -181,7 +142,7 @@ int tag_unlink(const char *user_path)
     free(dirpath);
     free(filename);
     ht_free(selected_tags);
-  end:
+
     return res;
 }
 
@@ -189,11 +150,10 @@ int tag_rmdir(const char *user_path)
 {
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
-    if (slash_count > 1) {
-        res =  -EPERM;
-        goto end;
-    }
-    
+    LOG("rmdir '%s'\n", user_path);
+    if (slash_count > 1) 
+        return -EPERM;
+
     char *tag = basenamedup(user_path);
     struct tag *t = tag_get(tag);
     if (NULL == t) {
@@ -202,30 +162,26 @@ int tag_rmdir(const char *user_path)
         tag_remove(t);
     }
     free(tag);
-  end:
     return res;
 }
 
 int tag_mkdir(const char *user_path, mode_t mode)
 {
     int res = 0;
+    LOG("mkdir '%s'\n", user_path);
     int slash_count = get_character_count(user_path, '/');
-    if (slash_count > 1) {
-        res =  -EPERM;
-        goto end;
-    }
+    if (slash_count > 1)
+        return  -EPERM;
+
     char *filename = basenamedup(user_path);
     struct tag *t;
     t = tag_get(filename);
     if (INVALID_TAG != t) {
         res = -EEXIST;
-        free(filename);
-        goto end;
+    } else {
+        tag_get_or_create(filename);
     }
-    tag_get_or_create(filename);
-
     free(filename);
-  end:
     return res;
 }
 
@@ -324,29 +280,15 @@ int tag_read(
     const char *path, char *buffer, size_t len,
     off_t off, struct fuse_file_info *fi)
 {
-    struct filedes *filedes = (struct filedes*) fi->fh;
-    int res, fd = filedes->fd;
+    int res = 0;
+    struct filedes *fd = (struct filedes*) fi->fh;
+    struct file *f = file_get_or_create(fd->filename);
 
-    if (filedes->is_tagfile)
+    if (fd->is_tagfile)
         return read_tag_file(buffer, len, off);
 
     LOG("read '%s' for %ld bytes starting at offset %ld\n", path, len, off);
-
-    if (lseek(fd, off, SEEK_SET) < 0) {
-        res = -errno;
-        goto out;
-    }
-    res = read(fd, buffer, len);
-    if (res >= 0 && res < len) {
-        for (int i = res; i < len; ++i) {
-            buffer[i] = 0;
-        }
-    }
-    if (res < 0) {
-        res = -errno;
-    }
-
-  out:
+    res = file_read(f, buffer, len, off);
     if (res < 0)
         LOG("read returning '%s'\n", strerror(-res));
     else
@@ -358,25 +300,15 @@ int tag_write(
     const char *path, const char *buffer, size_t len,
     off_t off, struct fuse_file_info *fi)
 {
-    struct filedes *filedes = (struct filedes*) fi->fh;
-    int res, fd = filedes->fd;
-    
-    if (filedes->is_tagfile)
+    int res = 0;
+    struct filedes *fd = (struct filedes*) fi->fh;
+    struct file *f = file_get_or_create(fd->filename);
+
+    if (fd->is_tagfile)
         return -EPERM;
 
-    LOG("write '%s' for %ld bytes starting at offset %ld\n",
-        path, len, off);
-
-    if (lseek(fd, off, SEEK_SET) < 0) {
-        res = -errno;
-        goto out;
-    }
-    res = write(fd, buffer, len);
-    if (res < 0) {
-        res = -errno;
-    }
-
-  out:
+    LOG("write '%s' for %ld bytes starting at offset %ld\n", path, len, off);
+    res = file_write(f, buffer, len, off);
     if (res < 0)
         LOG("write returning '%s'\n", strerror(-res));
     else
@@ -442,14 +374,14 @@ int tag_link(const char *user_path, const char *tags)
     struct stat stbuf;
     char *filename, *realpath;
     struct file *f;
-    
+
     LOG("link file:'%s' - tags:'%s'\n", user_path, tags);
-    
+
     realpath = tag_realpath(user_path);
     filename = basenamedup(user_path);
     tags = dirnamedup(tags);
     compute_selected_tags(tags, &selected_tags);
-    
+
     res = getattr_intra(
         user_path, &stbuf, emptyhash, realpath, filename);
     if (res < 0)
@@ -467,7 +399,7 @@ int tag_link(const char *user_path, const char *tags)
     return res;
 }
 
-    
+
 struct fuse_operations tag_oper = {
     .open = tag_open,
     .release = tag_release,
@@ -482,7 +414,7 @@ struct fuse_operations tag_oper = {
     .link = tag_link,
     .unlink = tag_unlink,
     .rmdir = tag_rmdir,
-    
+
     .mknod = tag_mknod,
     .mkdir = tag_mkdir,
     .truncate = tag_truncate,

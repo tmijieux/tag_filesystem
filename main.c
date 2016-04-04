@@ -11,7 +11,7 @@
 #include "log.h"
 #include "tag.h"
 #include "file.h"
-#include "tagfs.h"
+#include "fuse.h"
 
 static void set_root_directory(const char *path)
 {

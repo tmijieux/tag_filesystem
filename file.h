@@ -3,12 +3,17 @@
 
 struct file;
 
-#include "cutil/hash_table.h"
 #include "filedes.h"
+#include "util.h"
 
 struct file {
     char *name;
+    char *realpath;
+
     struct hash_table *tags;
+
+    int fd;
+    bool opened;
 };
 
 #include <stdio.h>
@@ -24,5 +29,9 @@ void file_add_tag(struct file *f, struct tag *t);
 void file_remove_tag(struct file *f, struct tag *t);
 struct list *file_list(void);
 
+int file_open(struct file *f, int flags);
+int file_close(struct file *f);
+int file_read(struct file *f, char *buffer, size_t len, off_t off);
+int file_write(struct file *f, const char *buffer, size_t len, off_t off);
 
 #endif //FILE_H

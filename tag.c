@@ -1,4 +1,3 @@
-
 #include <stdbool.h>
 #include <libgen.h>
 #include <string.h>

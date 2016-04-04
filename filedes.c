@@ -28,44 +28,28 @@ char *tag_realpath(const char *user_path)
     return realpath;
 }
 
-int filedes_create(const char *user_path, int flags, struct filedes **fd__)
+struct filedes *filedes_create(const char *user_path)
 {
-    int res = 0;
     struct filedes *fd = calloc(sizeof *fd, 1);
-    
-    fd->realpath = tag_realpath(user_path);
-    fd->fd = open(fd->realpath, flags);
-    if (fd->fd < 0) {
-        res = -errno;
-        free((char*)fd->realpath);
-    } else {
-        fd->virtpath = strdup(user_path);
-        fd->virtdirpath = dirnamedup(user_path);
-        fd->is_directory = false;
-        fd->is_tagfile = false;
-        char *name = basenamedup(user_path);
-        if (!strcmp(name, ".tag"))
-            fd->is_tagfile = true;
-            
-        fd->file = file_get_or_create(name);
-        free(name);
-        compute_selected_tags(fd->virtdirpath, &fd->selected_tags);
-    }
 
-    *fd__ = fd;
-    return res;
+    fd->is_directory = false;
+    fd->is_tagfile = false;
+    fd->realpath = tag_realpath(user_path);
+    fd->virtpath = strdup(user_path);
+    fd->virtdirpath = dirnamedup(user_path);
+    fd->filename = basenamedup(user_path);
+    if (!strcmp(fd->filename, ".tag"))
+        fd->is_tagfile = true;
+    compute_selected_tags(fd->virtdirpath, &fd->selected_tags);
+
+    return fd;
 }
 
-
-int filedes_delete(struct filedes *fd)
+void filedes_delete(struct filedes *fd)
 {
-    int res = 0;
-    
     free((char*) fd->realpath);
     free((char*) fd->virtpath);
     free((char*) fd->virtdirpath);
+    free((char*) fd->filename);
     ht_free(fd->selected_tags);
-    res = close(fd->fd);
-    free(fd);
-    return res;
 }
