@@ -161,10 +161,6 @@ static int getattr_intra(
         if (ht_entry_count(selected_tags) > 0) {
             if (!file_matches_tags(filename, selected_tags)) {
                 res = -ENOENT;
-            } else {
-                /* let our file appear as a symlink */
-                stbuf->st_mode &= ~S_IFMT;
-                stbuf->st_mode |= S_IFLNK;
             }
         } else if (!strcmp(filename, ".tag")) {
             /* tag file is special and have "almost infinite" size */
@@ -173,7 +169,7 @@ static int getattr_intra(
     }
     return res;
 }
-
+/*
 int tag_readlink(const char *user_path, char *buf, size_t size)
 {
     int slash_count;
@@ -194,6 +190,7 @@ int tag_readlink(const char *user_path, char *buf, size_t size)
     free(to);
     return 0;
 }
+*/
 
 /* get attributes */
 int tag_getattr(const char *user_path, struct stat *stbuf)
@@ -517,7 +514,7 @@ int tag_utime(const char *user_path, struct utimbuf *times)
     return res;
 }
 
-int tag_symlink(const char *user_path, const char *tags)
+int tag_link(const char *user_path, const char *tags)
 {
     int res = 0;
     struct hash_table *selected_tags, *emptyhash = ht_create(0, NULL);
@@ -525,7 +522,7 @@ int tag_symlink(const char *user_path, const char *tags)
     char *filename, *realpath;
     struct file *f;
     
-    LOG("symlink file:'%s' - tags:'%s'\n", user_path, tags);
+    LOG("link file:'%s' - tags:'%s'\n", user_path, tags);
     
     realpath = tag_realpath(user_path);
     filename = basenamedup(user_path);
@@ -561,9 +558,7 @@ struct fuse_operations tag_oper = {
     .readdir = tag_readdir,
     .write = tag_write,
 
-    .symlink = tag_symlink,
-    .readlink = tag_readlink,
-
+    .link = tag_link,
     .unlink = tag_unlink,
     .rmdir = tag_rmdir,
     
