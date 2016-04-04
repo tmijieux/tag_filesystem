@@ -10,6 +10,7 @@ struct file_descriptor;
 struct filedes {
     struct file *file;
     bool is_directory;
+    bool is_tagfile;
     int fd;
 
     struct hash_table *selected_tags;
@@ -36,5 +37,7 @@ struct file* file_get_or_create(const char *value);
 struct file* file_get(const char *value);
 void file_add_tag(struct file *f, struct tag *t);
 void file_remove_tag(struct file *f, struct tag *t);
-    
+struct list *file_list(void);
+
+
 #endif //FILE_H

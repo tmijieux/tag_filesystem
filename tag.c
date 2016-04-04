@@ -120,3 +120,27 @@ void untag_file(struct tag *t, struct file *f)
     file_remove_tag(f, t);
     tag_remove_file(t, f);
 }
+
+void tag_db_dump(FILE *output)
+{
+    struct list *l = file_list();
+    int s  = list_size(l);
+    DBG("read tag list size = %d\n", s);
+    for (int i = 1; i <= s; ++i) {
+        struct file *f = list_get(l, i);
+
+         if (ht_entry_count(f->tags) == 0) 
+             continue; 
+        
+        fprintf(output, "[%s]\n", f->name);
+        DBG("print file %s\n", f->name);
+        void print_tag(const char *key, void *tag, void *value)
+        {
+            struct tag *t = tag;
+            fprintf(output, "%s\n", t->value);
+        }
+        ht_for_each(f->tags, &print_tag, NULL);
+        fprintf(output, "\n");
+    }
+
+}

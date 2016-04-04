@@ -22,4 +22,7 @@ void compute_selected_tags(const char *user_path, struct hash_table **ret);
 struct list *tag_list(void);
 void tag_file(struct tag *t, struct file *f);
 void untag_file(struct tag *t, struct file *f);
+
+void tag_db_dump(FILE *output);
+
 #endif //TAG_H

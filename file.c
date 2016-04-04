@@ -24,6 +24,11 @@ void file_remove_tag(struct file *f, struct tag *t)
     ht_remove_entry(f->tags, t->value);
 }
 
+struct list *file_list(void)
+{
+    return ht_to_list(files);
+}
+
 static struct file *file_new(const char *name)
 {
     struct file *t = calloc(sizeof*t, 1);

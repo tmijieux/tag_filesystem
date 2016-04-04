@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <libgen.h>
+#include <limits.h>
 
 #include "tag.h"
 #include "log.h"
@@ -19,6 +20,8 @@
 #include "cutil/hash_table.h"
 #include "cutil/list.h"
 
+
+#define min(a, b) ((a) < (b) ? (a) : (b))
 DIR *realdir;
 char *realdirpath;
 
@@ -107,7 +110,11 @@ int tag_open(const char *user_path, struct fuse_file_info *fi)
         fd->virtpath = strdup(user_path);
         fd->virtdirpath = dirnamedup(user_path);
         fd->is_directory = false;
+        fd->is_tagfile = false;
         char *name = basenamedup(user_path);
+        if (!strcmp(name, ".tag"))
+            fd->is_tagfile = true;
+            
         fd->file = file_get_or_create(name);
         free(name);
         compute_selected_tags(fd->virtdirpath, &fd->selected_tags);
@@ -125,9 +132,9 @@ int tag_release(const char *user_path, struct fuse_file_info *fi)
     free((char*) fd->virtpath);
     free((char*) fd->virtdirpath);
     ht_free(fd->selected_tags);
+    int res = close(fd->fd);
     free(fd);
-
-    return close(fd->fd);
+    return res;
 }
 
 static int getattr_intra(
@@ -159,6 +166,9 @@ static int getattr_intra(
                 stbuf->st_mode &= ~S_IFMT;
                 stbuf->st_mode |= S_IFLNK;
             }
+        } else if (!strcmp(filename, ".tag")) {
+            /* tag file is special and have "almost infinite" size */
+            stbuf->st_size = (off_t) LONG_MAX;
         }
     }
     return res;
@@ -178,7 +188,7 @@ int tag_readlink(const char *user_path, char *buf, size_t size)
         to = append_dir("..", tmp);
         free(tmp);
     }
-    
+
     strncpy(buf, to, size);
     free(virtdirpath);
     free(to);
@@ -215,8 +225,8 @@ int tag_fgetattr(
     const char *user_path, struct stat *stbuf, struct fuse_file_info *fi)
 {
     struct filedes *fd = (struct filedes*)fi->fh;
-    return getattr_intra(user_path, stbuf, fd->selected_tags,
-                         fd->realpath, fd->file->name);
+    return getattr_intra(
+        user_path, stbuf, fd->selected_tags, fd->realpath, fd->file->name);
 }
 
 int tag_unlink(const char *user_path)
@@ -334,14 +344,10 @@ static void readdir_list_tags(
     // afficher les tags pas encore selectionné
     struct list *tagl = tag_list();
     unsigned s = list_size(tagl);
-    DBG("tag list size: %u\n", s);
 
     for (int i = 1; i <= s; ++i) {
         struct tag *t = list_get(tagl, i);
-        DBG("t->value = %s\n", t->value);
-        DBG("selected size: %d\n", ht_entry_count(selected_tags));
         if (!ht_has_entry(selected_tags, t->value)) {
-            DBG("on passe par la avec t->value = %s!\n", t->value);
             filler(buf, t->value, NULL, 0);
         }
     }
@@ -366,6 +372,35 @@ int tag_readdir(
     return res;
 }
 
+static int read_tag_file(char *buffer, size_t len, off_t off)
+{
+    int res = 0;
+    FILE *tagfile = tmpfile();
+    tag_db_dump(tagfile);
+    rewind(tagfile);
+    res = fseek(tagfile, off, SEEK_SET);
+    if (res < 0) {
+        res = -errno;
+        goto out;
+    }
+    res = fread(buffer, 1, len, tagfile);
+    if (res < 0) {
+        res = -errno;
+    } else if (res < len) {
+        DBG("res = %d ;; len = %d\n", res, len);
+        for (int i = res; i < len; ++i) {
+            buffer[i] = 0;
+        }
+    }
+  out:
+    fclose(tagfile);
+    if (res < 0)
+        LOG("read_tag returning '%s'\n", strerror(-res));
+    else
+        LOG("read_tag returning success (read %d)\n", res);
+    return res;
+}
+
 /* read the content of the file */
 int tag_read(
     const char *path, char *buffer, size_t len,
@@ -373,6 +408,9 @@ int tag_read(
 {
     struct filedes *filedes = (struct filedes*) fi->fh;
     int res, fd = filedes->fd;
+
+    if (filedes->is_tagfile)
+        return read_tag_file(buffer, len, off);
 
     LOG("read '%s' for %ld bytes starting at offset %ld\n", path, len, off);
 
@@ -404,6 +442,9 @@ int tag_write(
 {
     struct filedes *filedes = (struct filedes*) fi->fh;
     int res, fd = filedes->fd;
+    
+    if (filedes->is_tagfile)
+        return -EPERM;
 
     LOG("write '%s' for %ld bytes starting at offset %ld\n",
         path, len, off);
@@ -508,6 +549,7 @@ int tag_symlink(const char *user_path, const char *tags)
     return res;
 }
 
+    
 struct fuse_operations tag_oper = {
     .open = tag_open,
     .release = tag_release,
@@ -531,9 +573,7 @@ struct fuse_operations tag_oper = {
     .chmod = tag_chmod,
     .chown = tag_chown,
     .utime = tag_utime,
+
 };
 
-/**************************
- * Main
- */
 
