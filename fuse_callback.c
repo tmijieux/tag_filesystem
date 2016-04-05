@@ -79,25 +79,17 @@ static int getattr_intra(
 int tag_getattr(const char *user_path, struct stat *stbuf)
 {
     int res;
-    struct hash_table *selected_tags;
-    char *dirpath, *filename, *realpath;
 
     LOG("getattr '%s'\n", user_path);
 
-    realpath = tag_realpath(user_path);
-    filename = basenamedup(user_path);
-    dirpath = dirnamedup(user_path);
-    compute_selected_tags(dirpath, &selected_tags);
+    struct filedes *fd = filedes_create(user_path);
 
     res = getattr_intra(
-        user_path, stbuf, selected_tags, realpath, filename);
+        user_path, stbuf, fd->selected_tags, fd->realpath, fd->filename);
 
     LOG("getattr returning '%s'\n", strerror(-res));
 
-    free(filename);
-    free(realpath);
-    free(dirpath);
-
+    filedes_delete(fd);
     return res;
 }
 
@@ -119,29 +111,20 @@ int tag_unlink(const char *user_path)
         return -EPERM;
 
     struct file *f;
-    char *dirpath, *filename;
-    struct hash_table *selected_tags;
+    struct filedes *fd = filedes_create(user_path);
 
-    filename = basenamedup(user_path);
-    f = file_get(filename);
+    f = file_get(fd->filename);
     if (NULL == f) {
-        free(filename);
+        filedes_delete(fd);
         return -ENOENT;
     }
-
-    dirpath = dirnamedup(user_path);
-    compute_selected_tags(dirpath, &selected_tags);
-
     void remove_tag(const char *filename, void *tag, void *file)
     {
         untag_file(tag, file);
     }
-    ht_for_each(selected_tags, &remove_tag, f);
+    ht_for_each(fd->selected_tags, &remove_tag, f);
 
-    free(dirpath);
-    free(filename);
-    ht_free(selected_tags);
-
+    filedes_delete(fd);
     return res;
 }
 
@@ -150,7 +133,7 @@ int tag_rmdir(const char *user_path)
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
     LOG("rmdir '%s'\n", user_path);
-    if (slash_count > 1) 
+    if (slash_count > 1)
         return -EPERM;
 
     char *tag = basenamedup(user_path);
@@ -282,7 +265,7 @@ int tag_read(
     int res = 0;
     struct filedes *fd = (struct filedes*) fi->fh;
     struct file *f = file_get_or_create(fd->filename);
-
+    DBG(fd->filename);
     if (fd->is_tagfile)
         return read_tag_file(buffer, len, off);
 
@@ -366,38 +349,34 @@ int tag_utime(const char *user_path, struct utimbuf *times)
     return res;
 }
 
-int tag_link(const char *user_path, const char *tags)
+int tag_link(const char *from, const char *to)
 {
     int res = 0;
-    struct hash_table *selected_tags, *emptyhash = ht_create(0, NULL);
     struct stat stbuf;
-    char *filename, *realpath;
     struct file *f;
 
-    LOG("link file:'%s' - tags:'%s'\n", user_path, tags);
+    LOG("link file from:'%s' - to:'%s'\n", from, to);
 
-    realpath = tag_realpath(user_path);
-    filename = basenamedup(user_path);
-    tags = dirnamedup(tags);
-    compute_selected_tags(tags, &selected_tags);
+    struct filedes *ffrom = filedes_create(from);
+    struct filedes *fto = filedes_create(to);
 
     res = getattr_intra(
-        user_path, &stbuf, emptyhash, realpath, filename);
+        ffrom->virtpath, &stbuf, ffrom->selected_tags, ffrom->realpath, ffrom->filename);
     if (res < 0)
         return res;
-    f = file_get_or_create(filename);
+    f = file_get_or_create(ffrom->filename);
     void tag_this_file(const char *tagname, void *tag, void* file)
     {
-        struct file *f = file;
-        struct tag *t = tag;
-        tag_file(t, f);
+        tag_file(tag, file);
     }
-    ht_for_each(selected_tags, &tag_this_file, f);
+    ht_for_each(fto->selected_tags, &tag_this_file, f);
 
-    LOG("symlink returning '%s'\n", strerror(-res));
+    filedes_delete(ffrom);
+    filedes_delete(fto);
+
+    LOG("link returning '%s'\n", strerror(-res));
     return res;
 }
-
 
 struct fuse_operations tag_oper = {
     .open = tag_open,
@@ -420,7 +399,6 @@ struct fuse_operations tag_oper = {
     .chmod = tag_chmod,
     .chown = tag_chown,
     .utime = tag_utime,
-
 };
 
 

@@ -29,6 +29,9 @@ struct list *file_list(void)
 static struct file *file_new(const char *name)
 {
     struct file *t = calloc(sizeof*t, 1);
+    char *tmp = append_dir(realdirpath, name);
+    t->realpath = tag_realpath(tmp);
+    free(tmp);
     t->name = strdup(name);
     t->tags = ht_create(0, NULL);
     t->fd = -1;
@@ -59,24 +62,29 @@ struct file* file_get(const char *value)
 
 int file_open(struct file *f, int flags)
 {
-    int res = -1;
-    if (!f->opened) {
-        res = f->fd = open(f->realpath, flags);
+    int res = 0;
+    if (false == f->opened) {
+        f->fd = open(f->realpath, flags);
         f->opened = true;
+        if (res < 0) {
+            print_debug("lulz %s\n", strerror(errno));
+            res = -errno;
+        } else {
+            res = 0;
+        }
     }
     return res;
 }
 
-
 int file_close(struct file *f)
 {
-    int ret = -1;
-    if (f->opened) {
-        ret = close(f->fd);
+    if (true == f->opened) {
+        int r = close(f->fd);
         f->opened = false;
         f->fd = -1;
+        return r;
     }
-    return ret;
+    return 0;
 }
 
 int file_read(struct file *f, char *buffer, size_t len, off_t off)
