@@ -1,6 +1,6 @@
 #include "sys.h"
 #include "util.h"
-#include "fuse.h"
+#include "fuse_callback.h"
 
 #include "tag.h"
 #include "filedes.h"
@@ -125,9 +125,8 @@ int tag_unlink(const char *user_path)
     filename = basenamedup(user_path);
     f = file_get(filename);
     if (NULL == f) {
-        res = -ENOENT;
         free(filename);
-        goto end;
+        return -ENOENT;
     }
 
     dirpath = dirnamedup(user_path);

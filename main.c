@@ -11,7 +11,7 @@
 #include "log.h"
 #include "tag.h"
 #include "file.h"
-#include "fuse.h"
+#include "fuse_callback.h"
 
 static void set_root_directory(const char *path)
 {
