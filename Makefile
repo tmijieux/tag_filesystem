@@ -1,8 +1,8 @@
 TARGET=tagfs
 SRC=$(wildcard *.c) $(wildcard cutil/*.c)
 DEBUG=1
-CFLAGS=-Wall -std=gnu99 -I.. -D_FILE_OFFSET_BITS=64 \
-	-Wno-unused-label -Wno-unused-function 
+CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
+	-Wno-unused-label -Wno-unused-function -iquote.
 
 ifdef DEBUG
 	CFLAGS+=-ggdb -O0 -DDEBUG
@@ -33,11 +33,16 @@ clean:
 	$(RM) $(OBJ) $(DEP) *.log *.o
 	make -C cutil clean
 
-restart: mnt stop kill tagfs 
+start: mnt tagfs
 	./tagfs . mnt -f -d -s
 
-debug: mnt tagfs stop
+restart: stop kill start
+
+debug: tagfs stop
 	gdb --args ./tagfs . mnt -f -d -s
+
+val3: tagfs stop
+	valgrind ./tagfs . mnt -f -d -s
 
 stop:
 	fusermount -u mnt || true

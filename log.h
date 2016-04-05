@@ -29,7 +29,7 @@ extern FILE *mylog;
 
 #ifdef DEBUG
 
-#define DBG(args...) do {                  \
+#define DBG(args...) do {                       \
         print_debug(args);                      \
     } while(0)                                  \
         
