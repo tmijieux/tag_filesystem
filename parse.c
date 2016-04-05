@@ -25,11 +25,13 @@ void parsing(const char* fileName) {
 				i++;	
 			if (word[i] == '[') {
 				char * data = copy(word+i+1, ']');
+				printf("file %s\n", data);
 				f = file_get_or_create(data);
 			} else {
 				char * datat = copy(word+i, '\0');
 				if (strlen(datat)) {
 					struct tag * tg = tag_get_or_create(datat);
+					printf("file %s\n", datat);
 					if (f != NULL) {
 						file_add_tag(f, tg);
 						tag_add_file(tg,f);
