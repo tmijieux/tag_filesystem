@@ -31,7 +31,7 @@ void parsing(const char* fileName) {
 				char * datat = copy(word+i, '\0');
 				if (strlen(datat)) {
 					struct tag * tg = tag_get_or_create(datat);
-					printf("file %s\n", datat);
+					printf("tag %s\n", datat);
 					if (f != NULL) {
 						file_add_tag(f, tg);
 						tag_add_file(tg,f);
