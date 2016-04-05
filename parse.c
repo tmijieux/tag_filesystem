@@ -21,16 +21,20 @@ void parsing(const char* fileName) {
 	if (fi != NULL) {
 		while(fgets(word, MAX_LENGTH, fi) != NULL) {
 			int i=0;
-			while(word[i] == ' ')
+			while(isspace(word[i]))
 				i++;	
 			if (word[i] == '[') {
 				char * data = copy(word+i+1, ']');
 				f = file_get_or_create(data);
 			} else {
 				char * datat = copy(word+i, '\0');
-				struct tag * tg = tag_get_or_create(datat);
-				file_add_tag(f, tg);
-				tag_add_file(tg,f);
+				if (strlen(datat)) {
+					struct tag * tg = tag_get_or_create(datat);
+					if (f != NULL) {
+						file_add_tag(f, tg);
+						tag_add_file(tg,f);
+					}
+				}
 			}
 			
 		}
