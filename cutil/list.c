@@ -196,8 +196,8 @@ void list_each(const struct list *l, void (*fun)(void*))
     list_each_r(l, (void (*)(void*,void*))&uncurry, fun);
 }
 
-struct list *list_map_r(const struct list *l,
-		      void *(*fun)(void*, void*), void *args)
+struct list *list_map_r(
+    const struct list *l, void *(*fun)(void*, void*), void *args)
 {
     int si = list_size(l);
     struct list *ret= list_new(0);
@@ -206,7 +206,8 @@ struct list *list_map_r(const struct list *l,
     return ret;
 }
 
-void list_each_r(const struct list *l, void (*fun)(void*, void*), void *args)
+void list_each_r(
+    const struct list *l, void (*fun)(void*, void*), void *args)
 {
     int si = list_size(l);
     for (int i = 1; i <= si; ++i)
