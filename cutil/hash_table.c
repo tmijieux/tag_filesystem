@@ -22,7 +22,7 @@
 #include "hash_table.h"
 #include "list.h"
 
-#define INITIAL_HASH_TABLE_SIZE     113
+#define INITIAL_HASH_TABLE_SIZE     1013
 
 struct ht_entry {
     char *key;
@@ -159,6 +159,8 @@ int ht_remove_entry(struct hash_table *ht, const char *key)
                 he->lnext->lprev = he->lprev;
             if (NULL != he->lprev)
                 he->lprev->lnext = he->lnext;
+            if (ht->lfirst == he)
+                ht->lfirst = he->lnext;
             
 	    free_entry(he);
             ht->entry_count--;
@@ -190,7 +192,6 @@ int ht_get_entry(struct hash_table *ht, const char *key, void *ret)
     int pos = hash % ht->size;
 
     struct ht_entry *he = ht->buf[pos];
-
     while (he) {
 	if (!strcmp(he->key, key)) {
 	    *(const void**) ret = he->data;

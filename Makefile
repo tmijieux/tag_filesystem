@@ -41,7 +41,7 @@ debug: tagfs stop
 	gdb --args ./tagfs . mnt -f -d -s
 
 val3: tagfs stop
-	valgrind ./tagfs . mnt -f -d -s
+	valgrind ./tagfs images mnt -f -d -s
 
 stop:
 	fusermount -u mnt || true

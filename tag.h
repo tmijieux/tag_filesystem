@@ -12,7 +12,6 @@ struct tag {
 #include "file.h"
 #include "cutil/hash_table.h"
 
-
 struct tag* tag_get_or_create(const char *value);
 struct tag* tag_get(const char *value);
 bool tag_exist(const char *value);

@@ -7,4 +7,4 @@
 
 void parse_tags(const char *filename);
 
-#endif
+#endif //PARSE_H

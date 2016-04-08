@@ -16,7 +16,7 @@ __attribute__((constructor))
 static void tag_init(void)
 {
     tags = ht_create(0, NULL);
-    
+
     #ifdef DEBUG
     tag_get_or_create("nuit");
     tag_get_or_create("paysage");
@@ -36,9 +36,9 @@ struct tag* tag_get_or_create(const char *value)
     struct tag *t;
     if (ht_get_entry(tags, value, &t) >= 0) {
         return t;
-    } 
+    }
     t = tag_new(value);
-    
+
     ht_add_entry(tags, value, t);
     return t;
 }
@@ -48,7 +48,7 @@ struct tag* tag_get(const char *value)
     struct tag *t;
     if (ht_get_entry(tags, value, &t) >= 0) {
         return t;
-    } 
+    }
     return INVALID_TAG;
 }
 
@@ -59,6 +59,7 @@ bool tag_exist(const char *value)
 
 void tag_add_file(struct tag *t, struct file *f)
 {
+    list_remove_value(t->file_list, f);
     list_add(t->file_list, f);
 }
 
@@ -72,28 +73,29 @@ void tag_remove(struct tag *t)
     int s = list_size(t->file_list);
     for (int i = 1; i <= s; ++i) {
         struct file *f;
-        
+
         f = list_get(t->file_list, i);
         file_remove_tag(f, t);
     }
 
     ht_remove_entry(tags, t->value);
+    free(t);
 }
 
 void compute_selected_tags(
     const char *dirpath, struct hash_table **ret)
 {
     int i;
- 
+
     struct hash_table *selected_tags;
     *ret = selected_tags = ht_create(0, NULL);
 
-    if (!strcmp(dirpath, ".")) 
+    if (!strcmp(dirpath, "."))
         return ;
-    
+
     char **tags ;
     int tag_count = string_split(dirpath, "/", &tags);
-    
+
     for (i = 0; i < tag_count; ++i) {
         DBG("selected tag: %s\n", tags[i]);
         ht_add_entry(selected_tags, tags[i], tag_get(tags[i]));
@@ -123,14 +125,14 @@ void untag_file(struct tag *t, struct file *f)
 void tag_db_dump(FILE *output)
 {
     struct list *l = file_list();
-    int s  = list_size(l);
+    int s = list_size(l);
     DBG("read tag list size = %d\n", s);
     for (int i = 1; i <= s; ++i) {
         struct file *f = list_get(l, i);
 
-         if (ht_entry_count(f->tags) == 0) 
-             continue; 
-        
+         if (ht_entry_count(f->tags) == 0)
+             continue;
+
         fprintf(output, "[%s]\n", f->name);
         DBG("print file %s\n", f->name);
         void print_tag(const char *key, void *tag, void *value)
@@ -141,5 +143,4 @@ void tag_db_dump(FILE *output)
         ht_for_each(f->tags, &print_tag, NULL);
         fprintf(output, "\n");
     }
-
 }

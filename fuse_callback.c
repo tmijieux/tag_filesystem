@@ -101,6 +101,23 @@ int tag_fgetattr(
         user_path, stbuf, fd->selected_tags, fd->realpath, fd->filename);
 }
 
+
+static int fd_unlink(struct filedes *fd)
+{
+    struct file *f;
+
+    f = file_get(fd->filename);
+    if (NULL == f) {
+        return -ENOENT;
+    }
+    void remove_tag(const char *filename, void *tag, void *file)
+    {
+        untag_file(tag, file);
+    }
+    ht_for_each(fd->selected_tags, &remove_tag, f);
+    return 0;
+}
+
 int tag_unlink(const char *user_path)
 {
     int res = 0;
@@ -110,19 +127,8 @@ int tag_unlink(const char *user_path)
     if (slash_count <= 1)
         return -EPERM;
 
-    struct file *f;
     struct filedes *fd = filedes_create(user_path);
-
-    f = file_get(fd->filename);
-    if (NULL == f) {
-        filedes_delete(fd);
-        return -ENOENT;
-    }
-    void remove_tag(const char *filename, void *tag, void *file)
-    {
-        untag_file(tag, file);
-    }
-    ht_for_each(fd->selected_tags, &remove_tag, f);
+    res = fd_unlink(fd);
 
     filedes_delete(fd);
     return res;
@@ -349,19 +355,15 @@ int tag_utime(const char *user_path, struct utimbuf *times)
     return res;
 }
 
-int tag_link(const char *from, const char *to)
+static int fd_link(struct filedes *ffrom, struct filedes *fto)
 {
-    int res = 0;
+    int res;
     struct stat stbuf;
     struct file *f;
 
-    LOG("link file from:'%s' - to:'%s'\n", from, to);
-
-    struct filedes *ffrom = filedes_create(from);
-    struct filedes *fto = filedes_create(to);
-
     res = getattr_intra(
-        ffrom->virtpath, &stbuf, ffrom->selected_tags, ffrom->realpath, ffrom->filename);
+        ffrom->virtpath, &stbuf, ffrom->selected_tags,
+        ffrom->realpath, ffrom->filename);
     if (res < 0)
         return res;
     f = file_get_or_create(ffrom->filename);
@@ -370,11 +372,46 @@ int tag_link(const char *from, const char *to)
         tag_file(tag, file);
     }
     ht_for_each(fto->selected_tags, &tag_this_file, f);
+    return res;
+}
+
+int tag_link(const char *from, const char *to)
+{
+    int res = 0;
+    LOG("link file from:'%s' - to:'%s'\n", from, to);
+
+    struct filedes *ffrom = filedes_create(from);
+    struct filedes *fto = filedes_create(to);
+
+    res = fd_link(ffrom, fto);
 
     filedes_delete(ffrom);
     filedes_delete(fto);
 
     LOG("link returning '%s'\n", strerror(-res));
+    return res;
+}
+
+int tag_rename(const char *from, const char *to)
+{
+    int res = 0;
+    struct filedes *ffrom = filedes_create(from);
+    struct filedes *fto = filedes_create(to);
+
+    if (ht_entry_count(ffrom->selected_tags) != 1 ||
+        ht_entry_count(fto->selected_tags) != 1)
+    {
+        res =  -EPERM;
+    }
+    else
+    {
+        fd_unlink(ffrom);
+        fd_link(ffrom, fto);
+    }
+
+    filedes_delete(ffrom);
+    filedes_delete(fto);
+
     return res;
 }
 
@@ -399,6 +436,7 @@ struct fuse_operations tag_oper = {
     .chmod = tag_chmod,
     .chown = tag_chown,
     .utime = tag_utime,
+    .rename = tag_rename,
 };
 
 

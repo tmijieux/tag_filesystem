@@ -60,7 +60,7 @@ static void manual_tag_for_test_purpose_only(void)
 int main(int argc, char *argv[])
 {
     int err;
-    
+
     if (argc < 2) {
         fprintf(stderr, "usage: %s target_directory mountpoint\n", argv[0]);
         exit(EXIT_FAILURE);

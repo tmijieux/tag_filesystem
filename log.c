@@ -8,5 +8,5 @@ __attribute__((constructor))
 static void log_init(void)
 {
     /* append logs to previous executions */
-    mylog = fopen(LOGFILE, "a"); 
+    mylog = fopen(LOGFILE, "a");
 }

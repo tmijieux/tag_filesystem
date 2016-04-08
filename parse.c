@@ -13,21 +13,21 @@ static char *copy(char word[], char end)
 {
     char *data;
     int length, j;
-    
+
     for (length = 0; word[length] != end; length++);
     data = calloc(sizeof(char), length + 1);
-    
+
     for (j= 0; j < length; j++)
         data[j] = word[j];
     data[j] = 0;
-    
+
     return data;
 }
 
 void parse_tags(const char *filename)
 {
     char word[MAX_LENGTH] = "";
-    
+
     FILE *fi = NULL;
     fi = fopen(filename, "r+");
     struct file * f = NULL;
@@ -38,7 +38,7 @@ void parse_tags(const char *filename)
             char *data;
             int i = 0;
             while (isspace(word[i]))
-                i++;	
+                i++;
             if (word[i] == '[') {
                 data = copy(word+i+1, ']');
                 printf("file %s\n", data);
