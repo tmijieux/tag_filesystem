@@ -7,6 +7,7 @@ struct tag {
 };
 
 #define INVALID_TAG ((struct tag*)0xdeadcafebeefbabe)
+#define TAG_FILENAME ".tags"
 
 #include <stdbool.h>
 #include "file.h"

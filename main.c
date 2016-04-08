@@ -29,7 +29,7 @@ static void set_root_directory(const char *path)
     }
 
     char *tag_file;
-    asprintf(&tag_file, "%s/%s", path, ".tags");
+    asprintf(&tag_file, "%s/%s", path, TAG_FILENAME);
     print_debug("tag filename = %s\n", tag_file);
     parse_tags(tag_file);
     free(tag_file);
@@ -75,9 +75,9 @@ int main(int argc, char *argv[])
     #endif
 
     LOG("\n");
-    LOG("starting grepfs in %s\n", realdirpath);
+    LOG("starting %s in %s\n", argv[0], realdirpath);
     err = fuse_main(argc, argv, &tag_oper, NULL);
-    LOG("stopped grepfs with return code %d\n", err);
+    LOG("stopped %s with return code %d\n", argv[0], err);
 
     closedir(realdir);
     free(realdirpath);

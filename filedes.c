@@ -38,7 +38,7 @@ struct filedes *filedes_create(const char *user_path)
     fd->virtpath = strdup(user_path);
     fd->virtdirpath = dirnamedup(user_path);
     fd->filename = basenamedup(user_path);
-    if (!strcmp(fd->filename, ".tags"))
+    if (!strcmp(fd->filename, TAG_FILENAME))
         fd->is_tagfile = true;
     compute_selected_tags(fd->virtdirpath, &fd->selected_tags);
 

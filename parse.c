@@ -8,8 +8,7 @@
 
 #define MAX_LENGTH 1000
 
-
-static char *copy(char word[], char end)
+static char *copy2(char word[], char end)
 {
     char *data;
     int length, j;
@@ -17,11 +16,16 @@ static char *copy(char word[], char end)
     for (length = 0; word[length] != end; length++);
     data = calloc(sizeof(char), length + 1);
 
-    for (j= 0; j < length; j++)
+    for (j = 0; j < length; j++)
         data[j] = word[j];
     data[j] = 0;
 
     return data;
+}
+
+static char *copy(char *word, char end)
+{
+    return strndup(word, strchr(word, end) - word);
 }
 
 void parse_tags(const char *filename)
