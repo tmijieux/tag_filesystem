@@ -28,6 +28,9 @@ struct ht_entry {
     char *key;
     void *data;
     struct ht_entry *next;
+
+    struct ht_entry *lnext;
+    struct ht_entry *lprev;
 };
 
 struct hash_table {
@@ -35,6 +38,8 @@ struct hash_table {
     size_t size;
     size_t entry_count;
     struct ht_entry **buf;
+
+    struct ht_entry *lfirst;
 };
 
 static const unsigned char T[256] = {
@@ -81,7 +86,7 @@ static int default_hash(const char *x)
 
 static struct ht_entry* new_entry(const char *key, void *data)
 {
-    struct ht_entry *he = malloc(sizeof(*he));
+    struct ht_entry *he = calloc(sizeof*he, 1);
     he->key = strdup(key);
     he->data = data;
     he->next = NULL;
@@ -113,6 +118,7 @@ struct hash_table* ht_create(size_t size, int (*hash)(const char*))
     else
 	    ht->size = INITIAL_HASH_TABLE_SIZE;
     ht->buf = calloc(sizeof(*ht->buf), ht->size);
+    ht->lfirst = NULL;
     return ht;
 }
 
@@ -125,6 +131,13 @@ int ht_add_entry(struct hash_table* ht, const char *key, void *data)
     he->next = ht->buf[pos];
     ht->buf[pos] = he;
     ht->entry_count ++;
+
+    he->lprev = NULL;
+    he->lnext = ht->lfirst;
+    if (NULL != ht->lfirst)
+        ht->lfirst->lprev = he;
+    ht->lfirst = he;
+    
     return 0;
 }
 
@@ -141,6 +154,12 @@ int ht_remove_entry(struct hash_table *ht, const char *key)
 		prev->next = he->next;
 	    else
 		ht->buf[pos] = he->next;
+
+            if (NULL != he->lnext)
+                he->lnext->lprev = he->lprev;
+            if (NULL != he->lprev)
+                he->lprev->lnext = he->lnext;
+            
 	    free_entry(he);
             ht->entry_count--;
 	    return 0;
@@ -157,7 +176,6 @@ int ht_has_entry(struct hash_table *ht, const char *key)
     int pos = hash % ht->size;
 
     struct ht_entry *he = ht->buf[pos];
-
     while (he) {
 	if (!strcmp(he->key, key))
 	    return 1;
@@ -208,29 +226,22 @@ void ht_free(struct hash_table* ht)
 void ht_for_each(struct hash_table* ht,
 		 void (*fun)(const char *, void*, void*), void *args)
 {
-    if (ht) {
-	for (unsigned i = 0; i < ht->size; ++i) {
-	    struct ht_entry *he = ht->buf[i];
-	    while (he) {
-		fun(he->key, he->data, args);
-		he = he->next;
-	    }
-	}
+    struct ht_entry *he = ht->lfirst;
+    while (NULL != he) {
+        fun(he->key, he->data, args);
+        he = he->lnext;
     }
 }
-
 
 struct list* ht_to_list(const struct hash_table *ht)
 {
     struct list *l = list_new(0);
-    if (ht) {
-	for (unsigned i = 0; i < ht->size; ++i) {
-	    struct ht_entry *he = ht->buf[i];
-	    while (he) {
-		list_append(l, he->data);
-		he = he->next;
-	    }
-	}
+    if (NULL != ht) {
+        struct ht_entry *he = ht->lfirst;
+        while (NULL != he) {
+            list_append(l, he->data);
+            he = he->lnext;
+        }
     }
     return l;
 }
