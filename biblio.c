@@ -4,11 +4,11 @@
 #include "log.h"
 #include "parse.h"
 
-void update_lib() {
+void update_lib(char * tagFile) {
 
 	struct list* filesList = file_list();
 	FILE * lib = NULL;
-	lib = fopen(".tags", "w+");
+	lib = fopen(tagFile, "w+");
 
 	if (lib != NULL) {
 		for (int i = 1; i <= (int) list_size(filesList); i++) {
@@ -31,7 +31,7 @@ void update_lib() {
 			} else
 				printf("la structure file n'existe pas\n");
 		}
+		fclose(lib);
 	}
-
-	fclose(lib);
+	
 }
