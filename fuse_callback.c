@@ -7,7 +7,7 @@
 #include "file.h"
 
 static bool file_matches_tags(
-    const char *filename, hash_table *selected_tags)
+    const char *filename, struct hash_table *selected_tags)
 {
     struct file *f = file_get_or_create(filename);
     bool match = true;
@@ -44,7 +44,7 @@ int tag_release(const char *user_path, struct fuse_file_info *fi)
 
 static int getattr_intra(
     const char *user_path, struct stat *stbuf,
-    hash_table *selected_tags,
+    struct hash_table *selected_tags,
     const char *realpath, const char *filename)
 {
     int res;
@@ -175,7 +175,7 @@ int tag_mkdir(const char *user_path, mode_t mode)
 
 static void readdir_list_files(
     void *buf, const char *user_path,
-    hash_table *selected_tags, fuse_fill_dir_t filler)
+    struct hash_table *selected_tags, fuse_fill_dir_t filler)
 {
     struct dirent *dirent;
 
@@ -201,7 +201,7 @@ static void readdir_list_files(
 }
 
 static void readdir_list_tags(
-    void *buf, hash_table *selected_tags, fuse_fill_dir_t filler)
+    void *buf, struct hash_table *selected_tags, fuse_fill_dir_t filler)
 {
     // afficher les tags pas encore selectionné
     struct list *tagl = tag_list();
@@ -220,7 +220,7 @@ int tag_readdir(
     const char *user_path, void *buf, fuse_fill_dir_t filler,
     off_t offset, struct fuse_file_info *fi)
 {
-    hash_table *selected_tags;
+    struct hash_table *selected_tags;
     int res = 0;
 
     LOG("\n\nreaddir '%s'\n", user_path);

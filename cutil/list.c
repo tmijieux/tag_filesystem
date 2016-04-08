@@ -1,19 +1,3 @@
-/*
- *  Copyright (©) 2015 Lucas Maugère, Thomas Mijieux
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- */
-
 #include <stdlib.h>
 #include <stdarg.h>
 
@@ -169,10 +153,10 @@ void *list_to_array(const struct list *l)
     return array;
 }
 
-hash_table *list_to_hashtable(const struct list *l,
+struct hash_table *list_to_hashtable(const struct list *l,
 				     const char *(*element_keyname) (void *))
 {
-    hash_table *ht = ht_create(2 * l->size, NULL);
+    struct hash_table *ht = ht_create(2 * l->size, NULL);
 
     for (unsigned i = 0; i < l->size; ++i) {
 	void *el = list_get(l, i);

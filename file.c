@@ -3,7 +3,7 @@
 #include "file.h"
 #include "tag.h"
 
-static hash_table *files;
+static struct hash_table *files;
 
 __attribute__((constructor))
 static void file_init(void)

@@ -10,7 +10,7 @@ struct file {
     char *name;
     char *realpath;
 
-    hash_table *tags;
+    struct hash_table *tags;
 
     int fd;
     bool opened;

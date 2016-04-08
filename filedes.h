@@ -22,7 +22,7 @@ struct filedes {
     bool is_directory;
     bool is_tagfile;
 
-    hash_table *selected_tags;
+    struct hash_table *selected_tags;
 };
 
 char *tag_realpath(const char *user_path);
