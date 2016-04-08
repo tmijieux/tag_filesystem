@@ -9,8 +9,7 @@
 #include "cutil/list.h"
 #include "cutil/string2.h"
 
-
-static struct hash_table *tags;
+static hash_table *tags;
 
 __attribute__((constructor))
 static void tag_init(void)
@@ -83,11 +82,11 @@ void tag_remove(struct tag *t)
 }
 
 void compute_selected_tags(
-    const char *dirpath, struct hash_table **ret)
+    const char *dirpath, hash_table **ret)
 {
     int i;
 
-    struct hash_table *selected_tags;
+    hash_table *selected_tags;
     *ret = selected_tags = ht_create(0, NULL);
 
     if (!strcmp(dirpath, "."))

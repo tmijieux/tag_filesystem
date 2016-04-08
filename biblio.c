@@ -15,7 +15,7 @@ void update_lib(char *tagFile)
             struct file *fi = list_get(filesList, i);
 
             if (fi != NULL) {
-                struct hash_table *fiTags = fi->tags;
+                hash_table *fiTags = fi->tags;
                 struct list *fiTagsList = ht_to_list(fiTags);
 
                 fprintf(lib, "[%s]\n", fi->name);

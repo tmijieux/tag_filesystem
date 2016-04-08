@@ -1,4 +1,5 @@
 TARGET=tagfs
+DEBUG=1
 SRC=$(wildcard *.c) $(wildcard cutil/*.c)
 CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
 	-Wno-unused-label -Wno-unused-function -iquote.
@@ -38,7 +39,7 @@ start: mnt tagfs
 restart: stop kill start
 
 debug: tagfs stop
-	gdb --args ./tagfs . mnt -f -d -s
+	gdb --args ./tagfs images/ mnt -f -d -s
 
 val3: tagfs stop
 	valgrind ./tagfs images mnt -f -d -s

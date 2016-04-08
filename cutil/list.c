@@ -169,10 +169,10 @@ void *list_to_array(const struct list *l)
     return array;
 }
 
-struct hash_table *list_to_hashtable(const struct list *l,
+hash_table *list_to_hashtable(const struct list *l,
 				     const char *(*element_keyname) (void *))
 {
-    struct hash_table *ht = ht_create(2 * l->size, NULL);
+    hash_table *ht = ht_create(2 * l->size, NULL);
 
     for (unsigned i = 0; i < l->size; ++i) {
 	void *el = list_get(l, i);
