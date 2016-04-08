@@ -34,7 +34,7 @@ extern FILE *mylog;
     } while(0)                                  \
         
 #else
-#define DEBUGMSG(args...)
+#define DBG(args...)
 #endif
 
 #endif //LOG_H

@@ -13,7 +13,9 @@ static void file_init(void)
 
 void file_add_tag(struct file *f, struct tag *t)
 {
-    ht_add_entry(f->tags, t->value, t);
+    if (!ht_has_entry(f->tags, t->value))
+        ht_add_entry(f->tags, t->value, t);
+    // TODO utiliser ht_append_entry à la place
 }
 
 void file_remove_tag(struct file *f, struct tag *t)

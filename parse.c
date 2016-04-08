@@ -1,64 +1,62 @@
 #include <string.h>
+#include <ctype.h>
+
 #include "tag.h"
 #include "file.h"
 #include "log.h"
 #include "parse.h"
 
-/*#include "cutil/hash_table.h"
-#include "cutil/list.h"
-#include "cutil/string2.h"*/
-
 #define MAX_LENGTH 1000
 
 
-void parsing(const char* fileName) {
-	
-	char word[MAX_LENGTH] = "";
-
-	FILE *fi = NULL;
-	fi = fopen(fileName, "r+");
-	struct file * f = NULL;
-	if (fi != NULL) {
-		while(fgets(word, MAX_LENGTH, fi) != NULL) {
-			int i=0;
-			while(isspace(word[i]))
-				i++;	
-			if (word[i] == '[') {
-				char * data = copy(word+i+1, ']');
-				printf("file %s\n", data);
-				f = file_get_or_create(data);
-			} else {
-				char * datat = copy(word+i, '\0');
-				if (strlen(datat)) {
-					struct tag * tg = tag_get_or_create(datat);
-					printf("tag %s\n", datat);
-					if (f != NULL) {
-						file_add_tag(f, tg);
-						tag_add_file(tg,f);
-					}
-				}
-			}
-			
-		}
-	}
-
-	fclose(fi);
-
+static char *copy(char word[], char end)
+{
+    char *data;
+    int length, j;
+    
+    for (length = 0; word[length] != end; length++);
+    data = calloc(sizeof(char), length + 1);
+    
+    for (j= 0; j < length; j++)
+        data[j] = word[j];
+    data[j] = 0;
+    
+    return data;
 }
 
-char * copy(char word[], char end) {
-	int length = 0;
+void parse_tags(const char *filename)
+{
+    char word[MAX_LENGTH] = "";
+    
+    FILE *fi = NULL;
+    fi = fopen(filename, "r+");
+    struct file * f = NULL;
+    if (fi != NULL) {
+        while(fgets(word, MAX_LENGTH, fi) != NULL) {
+            if (word[0] == '#')
+                continue;
+            char *data;
+            int i = 0;
+            while (isspace(word[i]))
+                i++;	
+            if (word[i] == '[') {
+                data = copy(word+i+1, ']');
+                printf("file %s\n", data);
+                f = file_get_or_create(data);
 
-	for (length; word[length] != end; length++);
+            } else {
+                data = copy(word+i, '\n');
+                if (strlen(data)) {
+                    struct tag *t = tag_get_or_create(data);
+                    printf("tag %s\n", data);
+                    if (f != NULL) {
+                        tag_file(t, f);
 
-	char * data = malloc(sizeof(char)*length);
-	char* final = data;
-
-	int j = 0;
-	for ( j ; j<length ; j++ ) {
-		*data = word[j];
-		data++;
-	}
-
-	return final;
+                    }
+                }
+            }
+            free(data);
+        }
+    }
+    fclose(fi);
 }

@@ -1,6 +1,5 @@
 TARGET=tagfs
 SRC=$(wildcard *.c) $(wildcard cutil/*.c)
-DEBUG=1
 CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
 	-Wno-unused-label -Wno-unused-function -iquote.
 
