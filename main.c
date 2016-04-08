@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <locale.h>
 
+#include "parse.h"
 #include "log.h"
 #include "tag.h"
 #include "file.h"
@@ -26,6 +27,12 @@ static void set_root_directory(const char *path)
                 realdirpath, strerror(errno));
         exit(EXIT_FAILURE);
     }
+
+    char *tag_file;
+    asprintf(&tag_file, "%s/%s", path, ".tags");
+    print_debug("tag filename = %s\n", tag_file);
+    parse_tags(tag_file);
+    free(tag_file);
 }
 
 __attribute__((constructor))
@@ -66,7 +73,7 @@ int main(int argc, char *argv[])
     #ifdef DEBUG
     manual_tag_for_test_purpose_only();
     #endif
-    
+
     LOG("\n");
     LOG("starting grepfs in %s\n", realdirpath);
     err = fuse_main(argc, argv, &tag_oper, NULL);
