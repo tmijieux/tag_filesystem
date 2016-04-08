@@ -3,7 +3,7 @@
 
 struct tag {
     char *value;
-    struct list *file_list;
+    struct hash_table *files;
 };
 
 #define INVALID_TAG ((struct tag*)0xdeadcafebeefbabe)

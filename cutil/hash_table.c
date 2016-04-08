@@ -1,19 +1,3 @@
-/*
- *  Copyright (©) 2015 Lucas Maugère, Thomas Mijieux
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,6 +39,20 @@ int ht_add_entry(struct hash_table *h, const char *key, void *data)
     HASH_ADD_STR(h->h, key, entry);
     return 0;
 }
+
+int ht_add_unique_entry(struct hash_table *h, const char *key, void *data)
+{
+    struct ht_entry *entry;
+    HASH_FIND_STR(h->h, key, entry);
+    if (NULL != entry)
+        return -1;
+    entry = malloc(sizeof*entry);
+    entry->data = (void*) data;
+    entry->key = strdup(key);
+    HASH_ADD_STR(h->h, key, entry);
+    return 0;
+}
+
 
 int ht_remove_entry(struct hash_table *h, const char *key)
 {
