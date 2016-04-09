@@ -1,7 +1,8 @@
 TARGET=tagfs
 SRC=$(wildcard *.c) $(wildcard cutil/*.c)
 CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
-	-Wno-unused-label -Wno-unused-function -iquote.
+	-Wno-unused-label -Wno-unused-function -iquote. \
+	$(shell pkg-config --cflags --libs fuse)
 
 ifdef DEBUG
 	CFLAGS+=-ggdb -O0 -DDEBUG
@@ -33,7 +34,7 @@ clean:
 	make -C cutil clean
 
 start: mnt tagfs
-	./tagfs . mnt -f -d -s
+	./tagfs images mnt -f -d -s
 
 restart: stop kill start
 

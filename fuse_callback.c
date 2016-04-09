@@ -5,6 +5,7 @@
 #include "tag.h"
 #include "filedes.h"
 #include "file.h"
+#include "tagio.h"
 
 static bool file_matches_tags(
     const char *filename, struct hash_table *selected_tags)
@@ -200,10 +201,11 @@ static void readdir_list_files(
     }
 }
 
-static void readdir_list_tags(
+static void readdir_list_tags_mode1(
     void *buf, struct hash_table *selected_tags, fuse_fill_dir_t filler)
 {
     // afficher les tags pas encore selectionné
+
     struct list *tagl = tag_list();
     unsigned s = list_size(tagl);
 
@@ -215,6 +217,88 @@ static void readdir_list_tags(
     }
 }
 
+static struct hash_table *readdir_get_selected_files(
+    struct hash_table *selected_tags)
+{
+    struct hash_table *selected_files;
+    selected_files = ht_create(0, NULL);
+    // 1 get all file for selected tags:
+    void each_tag(const char *n, void *tag, void *arg)
+    {
+        void each_file(const char *n, void *file, void *arg)
+        {
+            struct file *f = file;
+            ht_add_unique_entry(selected_files, f->name, f);
+        }
+        struct tag *t = tag;
+        ht_for_each(t->files, &each_file, NULL);
+    }
+    ht_for_each(selected_tags, &each_tag, NULL);
+
+    // remove file not matching all the tags
+    void each_file(const char *n, void *file, void *arg)
+    {
+        void each_tag(const char *n, void *tag, void *file)
+        {
+            struct file *f = file;
+            struct tag *t = tag;
+            if (!ht_has_entry(f->tags, t->value)) {
+                ht_remove_entry(selected_files, f->name);
+                print_debug("removing file %s from selected_files\n", f->name);
+            }
+        }
+        ht_for_each(selected_tags, &each_tag, file);
+    }
+    ht_for_each(selected_files, &each_file, NULL);
+
+    return selected_files;
+}
+
+static void readdir_fill_remaining_tags(
+    struct hash_table *selected_tags, struct hash_table *selected_files,
+    void *buf, fuse_fill_dir_t filler)
+{
+    struct hash_table *remaining_tags;
+    remaining_tags = ht_create(0, NULL);
+    void each_file(const char *n, void *file, void *arg)
+    {
+        void each_tag(const char *n, void *tag, void *arg)
+        {
+            struct tag *t = tag;
+            if (!ht_has_entry(selected_tags, t->value) &&
+                !ht_has_entry(remaining_tags, t->value))
+            {
+                filler(buf, t->value, NULL, 0);
+                ht_add_unique_entry(remaining_tags, t->value, t);
+            }
+        }
+        struct file *f = file;
+        ht_for_each(f->tags, &each_tag, NULL);
+    }
+    ht_for_each(selected_files, &each_file, NULL);
+
+    ht_free(remaining_tags);
+}
+
+static void readdir_list_tags_mode2(
+    void *buf, struct hash_table *selected_tags, fuse_fill_dir_t filler)
+{
+    // recuperer les tags possibles pour les fichiers correspondant au
+    // tags selectionnés
+
+    // 1 etape: recuperer les fichiers correspondant au tag selectionnés:
+    struct hash_table *selected_files;
+    selected_files = readdir_get_selected_files(selected_tags);
+
+    // 2 eme etape: afficher tous les tags non selectionnés parmi les tags de
+    // ces fichiers:
+    readdir_fill_remaining_tags(
+        selected_tags, selected_files, buf, filler);
+    ht_free(selected_files);
+    // peut etre faudrait il le cacher au lieu de le liberer ici
+}
+
+
 /* list files within directory */
 int tag_readdir(
     const char *user_path, void *buf, fuse_fill_dir_t filler,
@@ -225,8 +309,14 @@ int tag_readdir(
 
     LOG("\n\nreaddir '%s'\n", user_path);
 
+    filler(buf, ".", NULL, 0);
+    filler(buf, "..", NULL, 0);
+    
     compute_selected_tags(user_path, &selected_tags);
-    readdir_list_tags(buf, selected_tags, filler);
+    if (ht_entry_count(selected_tags) > 0)
+        readdir_list_tags_mode2(buf, selected_tags, filler);
+    else
+        readdir_list_tags_mode1(buf, selected_tags, filler);
     readdir_list_files(buf, user_path, selected_tags, filler);
 
     LOG("readdir returning %s\n\n\n", strerror(-res));
@@ -271,7 +361,7 @@ int tag_read(
     int res = 0;
     struct filedes *fd = (struct filedes*) fi->fh;
     struct file *f = file_get_or_create(fd->filename);
-    DBG(fd->filename);
+
     if (fd->is_tagfile)
         return read_tag_file(buffer, len, off);
 
@@ -415,6 +505,46 @@ int tag_rename(const char *from, const char *to)
     return res;
 }
 
+static int ioctl_read_tags(struct filedes *fd, void *data)
+{
+    int size;
+    char *str;
+    struct tag_ioctl_rw *io;
+    struct file *f = file_get(fd->filename);
+    if (NULL == f)
+        return -ENOENT;
+    
+    io = data;
+    str = file_get_tags_string(f, &size);
+    
+    strncpy(io->buf, str, io->size);
+    ((char*) io->buf)[io->size] = '\0';
+    io->total_size = size;
+    
+    free(str);
+    return 0;
+}
+
+int tag_ioctl(
+    const char *path, int cmd, void *arg,
+    struct fuse_file_info *fi, unsigned int flags, void *data)
+{
+    (void) flags;
+    struct filedes *fd = (struct filedes*) fi->fh;
+        
+    if (fd->is_tagfile || fd->is_directory)
+        return -EINVAL;
+    if (flags & FUSE_IOCTL_COMPAT)
+        return -ENOSYS;
+    
+    switch (cmd) {
+    case TAGIOC_READ_TAGS:
+        return ioctl_read_tags(fd, data);
+        break;
+    }
+    return -EINVAL;
+}
+
 struct fuse_operations tag_oper = {
     .open = tag_open,
     .release = tag_release,
@@ -437,6 +567,8 @@ struct fuse_operations tag_oper = {
     .chown = tag_chown,
     .utime = tag_utime,
     .rename = tag_rename,
+
+    .ioctl = tag_ioctl,
 };
 
 

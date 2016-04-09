@@ -116,3 +116,18 @@ int file_write(struct file *f, const char *buffer, size_t len, off_t off)
         res = -errno;
     return res;
 }
+
+char *file_get_tags_string(const struct file *f, int *size)
+{
+    char *str = NULL;
+    void each_tag(const char *n, void *tag, void *arg)
+    {
+        char *tmp;
+        struct tag *t = tag;
+        tmp = str;
+        *size = asprintf(&str, "%s %s", str, t->value);
+        free(tmp);
+    }
+    ht_for_each(f->tags, each_tag, NULL);
+    return str;
+}

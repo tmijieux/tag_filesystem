@@ -33,5 +33,6 @@ int file_open(struct file *f, int flags);
 int file_close(struct file *f);
 int file_read(struct file *f, char *buffer, size_t len, off_t off);
 int file_write(struct file *f, const char *buffer, size_t len, off_t off);
+char *file_get_tags_string(const struct file *f, int *size);
 
 #endif //FILE_H
