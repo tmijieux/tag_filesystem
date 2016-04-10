@@ -32,6 +32,7 @@ mnt:
 clean: 
 	$(RM) $(OBJ) $(DEP) *.log *.o
 	make -C cutil clean
+	make -C print_tags clean
 
 start: mnt tagfs
 	./tagfs images mnt -f -d -s

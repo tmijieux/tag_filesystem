@@ -28,4 +28,3 @@ $(TARGET): $(OBJ)
 
 clean: 
 	$(RM) $(OBJ) $(DEP) *.log *.o
-	make -C cutil clean
