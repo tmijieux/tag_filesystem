@@ -1,6 +1,8 @@
 #include <string.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
+#include "fuse_callback.h"
 #include "tag.h"
 #include "file.h"
 #include "log.h"
@@ -8,20 +10,9 @@
 
 #define MAX_LENGTH 1000
 
-
-static char *copy(char word[], char end)
+static char *copy(char *word, char end)
 {
-    char *data;
-    int length, j;
-
-    for (length = 0; word[length] != end; length++);
-    data = calloc(sizeof(char), length + 1);
-
-    for (j= 0; j < length; j++)
-        data[j] = word[j];
-    data[j] = 0;
-
-    return data;
+    return strndup(word, strchr(word, end) - word);
 }
 
 void parse_tags(const char *filename)
@@ -36,13 +27,18 @@ void parse_tags(const char *filename)
             if (word[0] == '#')
                 continue;
             char *data;
+            struct stat st;
             int i = 0;
             while (isspace(word[i]))
                 i++;
             if (word[i] == '[') {
                 data = copy(word+i+1, ']');
                 printf("file %s\n", data);
-                f = file_get_or_create(data);
+
+                if (tag_getattr(data, &st) >= 0)
+                    f = file_get_or_create(data);
+                else
+                    print_error("file %s do not exist!\n", data);
 
             } else {
                 data = copy(word+i, '\n');

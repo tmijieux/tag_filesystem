@@ -11,7 +11,8 @@ void update_lib(char *tagFile)
     lib = fopen(tagFile, "w+");
 
     if (lib != NULL) {
-        for (int i = 1; i <= list_size(filesList); i++) {
+        int s1 = list_size(filesList);
+        for (int i = 1; i <= s1; i++) {
             struct file *fi = list_get(filesList, i);
 
             if (fi != NULL) {
@@ -19,7 +20,8 @@ void update_lib(char *tagFile)
                 struct list *fiTagsList = ht_to_list(fiTags);
 
                 fprintf(lib, "[%s]\n", fi->name);
-                for (int j = 1; j <= list_size(fiTagsList); j++) {
+                int s2 = list_size(fiTagsList);
+                for (int j = 1; j <= s2; ++j) {
                     struct tag *t = list_get(fiTagsList, j);
                     if (t != NULL) {
                         fprintf(lib, "%s\n", t->value);

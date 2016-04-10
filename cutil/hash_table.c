@@ -1,248 +1,116 @@
-/*
- *  Copyright (©) 2015 Lucas Maugère, Thomas Mijieux
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 
+#include "uthash.h"
 #include "hash_table.h"
 #include "list.h"
-
-#define INITIAL_HASH_TABLE_SIZE     1013
+#include "queue.h"
 
 struct ht_entry {
     char *key;
     void *data;
-    struct ht_entry *next;
 
-    struct ht_entry *lnext;
-    struct ht_entry *lprev;
+    UT_hash_handle hh;
 };
 
 struct hash_table {
-    int (*hash) (const char*);
-    size_t size;
-    size_t entry_count;
-    struct ht_entry **buf;
-
-    struct ht_entry *lfirst;
+    struct ht_entry *h;
 };
 
-static const unsigned char T[256] = {
-    // 256 values 0-255 in any (random) order suffices
-    98,  6, 85,150, 36, 23,112,164,135,207,169,  5, 26, 64,165,219, //  1
-    61, 20, 68, 89,130, 63, 52,102, 24,229,132,245, 80,216,195,115, //  2
-    90,168,156,203,177,120,  2,190,188,  7,100,185,174,243,162, 10, //  3
-    237, 18,253,225,  8,208,172,244,255,126,101, 79,145,235,228,121, //  4
-    123,251, 67,250,161,  0,107, 97,241,111,181, 82,249, 33, 69, 55, //  5
-    59,153, 29,  9,213,167, 84, 93, 30, 46, 94, 75,151,114, 73,222, //  6
-    197, 96,210, 45, 16,227,248,202, 51,152,252,125, 81,206,215,186, //  7
-    39,158,178,187,131,136,  1, 49, 50, 17,141, 91, 47,129, 60, 99, //  8
-    154, 35, 86,171,105, 34, 38,200,147, 58, 77,118,173,246, 76,254, //  9
-    133,232,196,144,198,124, 53,  4,108, 74,223,234,134,230,157,139, // 10
-    189,205,199,128,176, 19,211,236,127,192,231, 70,233, 88,146, 44, // 11
-    183,201, 22, 83, 13,214,116,109,159, 32, 95,226,140,220, 57, 12, // 12
-    221, 31,209,182,143, 92,149,184,148, 62,113, 65, 37, 27,106,166, // 13
-    3, 14,204, 72, 21, 41, 56, 66, 28,193, 40,217, 25, 54,179,117, // 14
-    238, 87,240,155,180,170,242,212,191,163, 78,218,137,194,175,110, // 15
-    43,119,224, 71,122,142, 42,160,104, 48,247,103, 15, 11,138,239  // 16
-};
-
-
-static int default_hash(const char *x)
+int ht_entry_count(const struct hash_table *h)
 {
- // Pearson's hash:
- // adapted from :
- // http://cs.mwsu.edu/~griffin/courses/2133/downloads/Spring11/p677-pearson.pdf
-    
-    union {
-        unsigned char hh[4];
-        uint32_t i;
-    } v;
-    for (int j = 0; j < 4; j++) {
-	unsigned char h = T[(x[0] + j) % 256];
-	for (int i = 0; x[i]; i++) {
-	    h = T[h ^ x[i]];
-	}
-        v.hh[j] = h;
-    }
-    
-    return (int) v.i;
+    return HASH_COUNT(h->h);
 }
 
-static struct ht_entry* new_entry(const char *key, void *data)
+struct hash_table *ht_create(size_t size, int (*hash)(const char*))
 {
-    struct ht_entry *he = calloc(sizeof*he, 1);
-    he->key = strdup(key);
-    he->data = data;
-    he->next = NULL;
-    return he;
+    struct hash_table *h = calloc(sizeof*h, 1);
+    h->h = NULL;
+    return h;
 }
 
-static void free_entry(struct ht_entry *he)
+int ht_add_entry(struct hash_table *h, const char *key, void *data)
 {
-    if (he) {
-	free(he->key);
-	free(he);
-    }
-}
-
-int ht_entry_count(const struct hash_table *ht)
-{
-    return ht->entry_count;
-}
-
-struct hash_table* ht_create(size_t size, int (*hash)(const char*))
-{
-    struct hash_table *ht = (struct hash_table*) calloc(sizeof(*ht), 1);
-    if (hash)
-	ht->hash = hash;
-    else
-	ht->hash = &default_hash;
-    if (size > 0)
-	    ht->size = size;
-    else
-	    ht->size = INITIAL_HASH_TABLE_SIZE;
-    ht->buf = calloc(sizeof(*ht->buf), ht->size);
-    ht->lfirst = NULL;
-    return ht;
-}
-
-int ht_add_entry(struct hash_table* ht, const char *key, void *data)
-{
-    int hash = ht->hash(key);
-    int pos = hash % ht->size;
-
-    struct ht_entry *he = new_entry(key, data);
-    he->next = ht->buf[pos];
-    ht->buf[pos] = he;
-    ht->entry_count ++;
-
-    he->lprev = NULL;
-    he->lnext = ht->lfirst;
-    if (NULL != ht->lfirst)
-        ht->lfirst->lprev = he;
-    ht->lfirst = he;
-    
+    struct ht_entry *entry = malloc(sizeof*entry);
+    entry->data = (void*) data;
+    entry->key = strdup(key);
+    HASH_ADD_STR(h->h, key, entry);
     return 0;
 }
 
-int ht_remove_entry(struct hash_table *ht, const char *key)
+int ht_add_unique_entry(struct hash_table *h, const char *key, void *data)
 {
-    int hash = ht->hash(key);
-    int pos = hash % ht->size;
+    struct ht_entry *entry;
+    HASH_FIND_STR(h->h, key, entry);
+    if (NULL != entry)
+        return -1;
+    entry = malloc(sizeof*entry);
+    entry->data = (void*) data;
+    entry->key = strdup(key);
+    HASH_ADD_STR(h->h, key, entry);
+    return 0;
+}
 
-    struct ht_entry *he = ht->buf[pos], *prev = NULL;
 
-    while (he) {
-	if (!strcmp(he->key, key)) {
-	    if (prev)
-		prev->next = he->next;
-	    else
-		ht->buf[pos] = he->next;
-
-            if (NULL != he->lnext)
-                he->lnext->lprev = he->lprev;
-            if (NULL != he->lprev)
-                he->lprev->lnext = he->lnext;
-            if (ht->lfirst == he)
-                ht->lfirst = he->lnext;
-            
-	    free_entry(he);
-            ht->entry_count--;
-	    return 0;
-	}
-	prev = he;
-	he = he->next;
+int ht_remove_entry(struct hash_table *h, const char *key)
+{
+    struct ht_entry *entry;
+    HASH_FIND_STR(h->h, key, entry);
+    if (NULL != entry) {
+        HASH_DEL(h->h, entry);
+        free(entry->key);
+        free(entry);
+        return 0;
     }
     return -1;
 }
 
-int ht_has_entry(struct hash_table *ht, const char *key)
+int ht_has_entry(struct hash_table *h, const char *key)
 {
-    int hash = ht->hash(key);
-    int pos = hash % ht->size;
-
-    struct ht_entry *he = ht->buf[pos];
-    while (he) {
-	if (!strcmp(he->key, key))
-	    return 1;
-	he = he->next;
-    }
-    return 0;
+    struct ht_entry *entry;
+    HASH_FIND_STR(h->h, key, entry);
+    return entry != NULL;
 }
 
-int ht_get_entry(struct hash_table *ht, const char *key, void *ret)
+int ht_get_entry(struct hash_table *h, const char *key, void *ret)
 {
-    int hash = ht->hash(key);
-    int pos = hash % ht->size;
-
-    struct ht_entry *he = ht->buf[pos];
-    while (he) {
-	if (!strcmp(he->key, key)) {
-	    *(const void**) ret = he->data;
-	    return 0;
-	}
-	he = he->next;
+    struct ht_entry *entry;
+    HASH_FIND_STR(h->h, key, entry);
+    if (NULL != entry) {
+        *((void**)ret) = entry->data;
+        return 0;
     }
-	*(const void**) ret = NULL; 
     return -1;
 }
 
-int ht_hash(struct hash_table *ht, const char *key)
+void ht_free(struct hash_table *h)
 {
-    return ht->hash(key);
-}
-
-void ht_free(struct hash_table* ht)
-{
-    if (ht) {
-	for (unsigned i = 0; i < ht->size; ++i) {
-	    struct ht_entry *he = ht->buf[i];
-	    while (he) {
-		struct ht_entry *tmp = he;
-		he = he->next;
-		free_entry(tmp);
-	    }
-	}
-	free(ht->buf);
-	free(ht);
+    struct ht_entry *entry, *tmp;
+    HASH_ITER(hh, h->h, entry, tmp) {
+        HASH_DEL(h->h, entry);
+        free(entry->key);
+        free(entry);
     }
+    free(h);
 }
 
-void ht_for_each(struct hash_table* ht,
+void ht_for_each(struct hash_table *h,
 		 void (*fun)(const char *, void*, void*), void *args)
 {
-    struct ht_entry *he = ht->lfirst;
-    while (NULL != he) {
-        fun(he->key, he->data, args);
-        he = he->lnext;
+    struct ht_entry *entry, *tmp;
+    HASH_ITER(hh, h->h, entry, tmp) {
+        fun(entry->key, entry->data, args);
     }
 }
 
-struct list* ht_to_list(const struct hash_table *ht)
+struct list* ht_to_list(const struct hash_table *h)
 {
+    struct ht_entry *entry, *tmp;
     struct list *l = list_new(0);
-    if (NULL != ht) {
-        struct ht_entry *he = ht->lfirst;
-        while (NULL != he) {
-            list_append(l, he->data);
-            he = he->lnext;
-        }
+    HASH_ITER(hh, h->h, entry, tmp) {
+        list_add(l, entry->data);
     }
     return l;
 }

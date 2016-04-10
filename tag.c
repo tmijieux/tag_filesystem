@@ -9,7 +9,6 @@
 #include "cutil/list.h"
 #include "cutil/string2.h"
 
-
 static struct hash_table *tags;
 
 __attribute__((constructor))
@@ -27,7 +26,7 @@ static struct tag *tag_new(const char *value)
 {
     struct tag *t = calloc(sizeof*t, 1);
     t->value = strdup(value);
-    t->file_list = list_new(0);
+    t->files = ht_create(0, NULL);
     return t;
 }
 
@@ -59,25 +58,21 @@ bool tag_exist(const char *value)
 
 void tag_add_file(struct tag *t, struct file *f)
 {
-    list_remove_value(t->file_list, f);
-    list_add(t->file_list, f);
+    ht_add_unique_entry(t->files, f->name, f);
 }
 
 void tag_remove_file(struct tag *t, struct file *f)
 {
-    list_remove_value(t->file_list, f);
+    ht_remove_entry(t->files, f->name);
 }
 
 void tag_remove(struct tag *t)
 {
-    int s = list_size(t->file_list);
-    for (int i = 1; i <= s; ++i) {
-        struct file *f;
-
-        f = list_get(t->file_list, i);
+    void remove_tag(const char *name, void *f, void *t)
+    {
         file_remove_tag(f, t);
     }
-
+    ht_for_each(t->files, &remove_tag, t);
     ht_remove_entry(tags, t->value);
     free(t);
 }
