@@ -119,14 +119,16 @@ int file_write(struct file *f, const char *buffer, size_t len, off_t off)
 
 char *file_get_tags_string(const struct file *f, int *size)
 {
-    char *str = NULL;
+    int c = 0;
+    char *str = strdup("");
     void each_tag(const char *n, void *tag, void *arg)
     {
         char *tmp;
         struct tag *t = tag;
         tmp = str;
-        *size = asprintf(&str, "%s %s", str, t->value);
+        *size = asprintf(&str, "%s%s%s", str, 0==c?"":" ",t->value);
         free(tmp);
+        ++c;
     }
     ht_for_each(f->tags, each_tag, NULL);
     return str;

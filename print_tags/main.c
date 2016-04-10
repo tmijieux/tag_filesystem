@@ -17,18 +17,12 @@ void print_tag_list(const char *filename)
         perror(filename);
         return;
     }
-    struct tag_ioctl_rw_arg io;
-    io.buf = malloc(BUFSIZE);
-    io.size = BUFSIZE;
-    
-    ioctl(fd, TAGIOC_READ_TAGS, &io);
-    if (io.total_size > io.size) {
-        io.buf = realloc(io.buf, io.total_size+1);
-        io.size = io.total_size+1;
-        ioctl(fd, TAGIOC_READ_TAGS, &io);
+    struct tag_ioctl io;
+    if (ioctl(fd, TAGIOC_READ_TAGS, &io) < 0) {
+        perror(filename);
+    } else {
+        printf("%s: %s\n", filename, io.buf);
     }
-    printf("%s: %s\n", filename, (char*)io.buf);
-    free(io.buf);
     close(fd);
 }
 

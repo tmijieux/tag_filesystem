@@ -505,22 +505,30 @@ int tag_rename(const char *from, const char *to)
     return res;
 }
 
-static int ioctl_read_tags(struct filedes *fd, void *data)
+static int ioctl_read_tags(struct filedes *fd, void *data_)
 {
-    int size;
+    int len;
     char *str;
-    struct tag_ioctl_rw *io;
+    struct tag_ioctl *data = data_;
     struct file *f = file_get(fd->filename);
     if (NULL == f)
         return -ENOENT;
     
-    io = data;
-    str = file_get_tags_string(f, &size);
-    
-    strncpy(io->buf, str, io->size);
-    ((char*) io->buf)[io->size] = '\0';
-    io->total_size = size;
-    
+    str = file_get_tags_string(f, &len);
+    print_debug("file tag string : %s\n", str);
+    strncpy(data->buf, str, BUFSIZE);
+    data->buf[BUFSIZE] = '\0';
+
+    print_debug("copied data : %s\n", data->buf);
+    if (len > BUFSIZE) {
+        int id = 0;//tag_ioctl_unique_id();
+        data->again = 1;
+        data->size = BUFSIZE;
+        data->id = id;
+    } else {
+        data->again = 0;
+        data->size = len;
+    }
     free(str);
     return 0;
 }
@@ -569,6 +577,8 @@ struct fuse_operations tag_oper = {
     .rename = tag_rename,
 
     .ioctl = tag_ioctl,
+
+    .flag_nullpath_ok = 0,
 };
 
 
