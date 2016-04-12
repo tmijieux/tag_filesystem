@@ -68,7 +68,7 @@ static int getattr_intra(
             if (!file_matches_tags(filename, selected_tags)) {
                 res = -ENOENT;
             }
-        } else if (!strcmp(filename, ".tag")) {
+        } else if (!strcmp(filename, TAG_FILENAME)) {
             /* tag file is special and have "almost infinite" size */
             stbuf->st_size = (off_t) LONG_MAX;
         }
@@ -320,7 +320,6 @@ int tag_readdir(
     readdir_list_files(buf, user_path, selected_tags, filler);
 
     LOG("readdir returning %s\n\n\n", strerror(-res));
-
     return res;
 }
 
