@@ -2,7 +2,7 @@ TARGET=tagfs
 SRC=$(wildcard *.c) $(wildcard cutil/*.c)
 CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
 	-Wno-unused-label -Wno-unused-function -iquote. \
-	$(shell pkg-config --cflags --libs fuse)
+	$(shell pkg-config --cflags fuse)
 
 ifdef DEBUG
 	CFLAGS+=-ggdb -O0 -DDEBUG
@@ -10,7 +10,7 @@ else
 	CFLAGS+=-g -O2 -march=native
 endif
 
-LDFLAGS= -L. -lfuse
+LDFLAGS=$(shell pkg-config --libs fuse)
 
 OBJ=$(SRC:.c=.o) 
 DEP=$(SRC:.c=.d) 
