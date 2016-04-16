@@ -23,8 +23,8 @@ $(TARGET): $(OBJ)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 %.o: %.c
-	gcc -c $(CFLAGS) $*.c -o $*.o
-	gcc -MM $(CFLAGS) $*.c > $*.d
+	$(CC) -c $(CFLAGS) $*.c -o $*.o
+	$(CC) -MM $(CFLAGS) $*.c > $*.d
 
 mnt: 
 	mkdir -p mnt/

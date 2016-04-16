@@ -13,6 +13,22 @@
 #include "tag.h"
 #include "file.h"
 #include "fuse_callback.h"
+#include "signal.h"
+
+void ctrlc_int(int a)
+{
+    printf("exiting signal way!\n");
+    exit(EXIT_FAILURE);
+}
+
+void install_sighandlers(void)
+{
+    struct sigaction sa = { 0 };
+    sa.sa_handler = ctrlc_int;
+    sa.sa_flags = 0;
+    sigfillset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
+}
 
 static void set_root_directory(const char *path)
 {
@@ -65,6 +81,8 @@ int main(int argc, char *argv[])
         fprintf(stderr, "usage: %s target_directory mountpoint\n", argv[0]);
         exit(EXIT_FAILURE);
     }
+
+    //install_sighandlers();
     /* find the absolute directory because fuse_main()
      * doesn't launch the daemon in the same current directory.
      */
@@ -74,14 +92,13 @@ int main(int argc, char *argv[])
     manual_tag_for_test_purpose_only();
     #endif
 
-    LOG("\n");
     LOG("starting %s in %s\n", argv[0], realdirpath);
     err = fuse_main(argc, argv, &tag_oper, NULL);
     LOG("stopped %s with return code %d\n", argv[0], err);
 
     closedir(realdir);
     free(realdirpath);
+    printf("exiting normal way!");
 
-    LOG("\n");
     return err;
 }
