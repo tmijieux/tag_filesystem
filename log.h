@@ -15,12 +15,6 @@
                         
 extern FILE *mylog;
 
-#define LOG(args...) do {                       \
-        fprintf(mylog, args);                   \
-        fflush(mylog);                          \
-        print_log(args);                        \
-    } while (0)
-
 #define ERROR(args...) do {                     \
         LOG("ERROR: " args);                    \
         print_error(args);                      \
@@ -29,12 +23,21 @@ extern FILE *mylog;
 
 #ifdef DEBUG
 
+#define LOG(args...) do {                       \
+        fprintf(mylog, args);                   \
+        fflush(mylog);                          \
+        print_log(args);                        \
+    } while (0)
+
 #define DBG(args...) do {                       \
         print_debug(args);                      \
     } while(0)                                  \
         
 #else
+
+#define LOG(args...)
 #define DBG(args...)
+
 #endif
 
 #endif //LOG_H
