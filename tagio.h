@@ -8,14 +8,13 @@
 #define BUFSIZE 1024
 
 struct tag_ioctl {
-    int id;
-    int again;
-    int size;
+    size_t size;
+    off_t off;
     char buf[BUFSIZE];
 };
 
 enum {
-    TAGIOC_READ_TAGS = _IOR('E', 0, struct tag_ioctl),
+    TAGIOC_READ_TAGS = _IOWR('E', 0, struct tag_ioctl),
 };
 
 #endif //TAGIO_H

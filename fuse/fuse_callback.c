@@ -5,7 +5,7 @@
 #include "tag.h"
 #include "filedes.h"
 #include "file.h"
-#include "tagio.h"
+#include "../tagio.h"
 
 static bool file_matches_tags(
     const char *filename, struct hash_table *selected_tags)
@@ -520,12 +520,8 @@ static int ioctl_read_tags(struct filedes *fd, void *data_)
 
     print_debug("copied data : %s\n", data->buf);
     if (len > BUFSIZE) {
-        int id = 0;//tag_ioctl_unique_id();
-        data->again = 1;
         data->size = BUFSIZE;
-        data->id = id;
     } else {
-        data->again = 0;
         data->size = len;
     }
     free(str);
