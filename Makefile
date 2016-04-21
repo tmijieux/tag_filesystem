@@ -3,6 +3,7 @@ all: cutil
 	make -C fuse
 	make -C fuse_lowlevel
 	make -C print_tags
+	make -C tests
 
 cutil:
 	make -C cutil

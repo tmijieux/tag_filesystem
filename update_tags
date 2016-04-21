@@ -1,0 +1,4 @@
+#!/bin/bash
+
+find . -name "*.[chCH]" -o -name "*.java" | etags -
+
