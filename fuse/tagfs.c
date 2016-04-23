@@ -1,11 +1,14 @@
-#include "sys.h"
-#include "util.h"
-#include "fuse_callback.h"
+#define FUSE_USE_VERSION 26
+#include <fuse.h>
 
-#include "tag.h"
-#include "filedes.h"
-#include "file.h"
-#include "../tagio.h"
+#include "tagioc.h"
+
+#include "./file_descriptor.h"
+#include "./sys.h"
+#include "./util.h"
+#include "./tag.h"
+#include "./file.h"
+#include "./path.h"
 
 static bool file_matches_tags(
     const char *filename, struct hash_table *selected_tags)
@@ -19,56 +22,62 @@ static bool file_matches_tags(
         if (t == INVALID_TAG || !ht_has_entry(f->tags, t->value))
             *match = false;
     }
-    print_debug("selected tags size: %d\n", ht_entry_count(selected_tags));
+    print_debug(_("selected tags size: %d\n"), ht_entry_count(selected_tags));
     ht_for_each(selected_tags, &check_tags, &match);
     return match;
 }
 
-int tag_open(const char *user_path, struct fuse_file_info *fi)
+static int tag_open(
+    const char *user_path, struct fuse_file_info *fi, int is_tag)
 {
-    int res = 0;
-    struct filedes *fd = filedes_create(user_path);
-    struct file *f = file_get_or_create(fd->filename);
-    res = file_open(f, fi->flags);
+    struct path *path = path_create(user_path, is_tag);
+    struct file_descriptor *fd;
+    fd = fd_open(path, fi->flags, is_tag);
+    if (IS_ERR(fd))
+        return PTR_ERR(fd);
     fi->fh = (uint64_t) fd;
-    return res;
-}
-
-int tag_release(const char *user_path, struct fuse_file_info *fi)
-{
-    struct filedes *fd = (struct filedes*) fi->fh;
-    struct file *f = file_get_or_create(fd->filename);
-    file_close(f);
-    filedes_delete(fd);
     return 0;
 }
 
-static int getattr_intra(
-    const char *user_path, struct stat *stbuf,
-    struct hash_table *selected_tags,
-    const char *realpath, const char *filename)
+static int tag_open_file(const char *user_path, struct fuse_file_info *fi)
+{
+    return tag_open(user_path, fi, 0);
+}
+
+static int tag_open_dir(const char *user_path, struct fuse_file_info *fi)
+{
+    return tag_open(user_path, fi, 1);
+}
+
+static int tag_release_generic(const char *user_path, struct fuse_file_info *fi)
+{
+    struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
+    return fd_close(fd);
+}
+
+static int getattr_intra(struct path *p, struct stat *stbuf)
 {
     int res;
 
     /* try to stat the actual file */
-    if ((res = stat(realpath, stbuf)) < 0 || S_ISDIR(stbuf->st_mode)) {
-        LOG("error ::%s :: %s\n", realpath, strerror(errno));
+    if ((res = stat(p->realpath, stbuf)) < 0 || S_ISDIR(stbuf->st_mode)) {
+        LOG(_("error ::%s :: %s\n"), p->realpath, strerror(errno));
         /* if the file doesn't exist, check if it's a tag
-           directory and stat the main directory instead */
-        if (!strcmp(user_path, "/") ||
-            (tag_exist(filename) &&
-             !ht_has_entry(selected_tags, filename))) {
+           (or the root) directory and stat the main directory instead */
+        if (!strcmp(p->virtpath, "/") ||
+            (tag_exist(p->filename) &&
+             !ht_has_entry(p->selected_tags, p->filename))) {
             res = stat(realdirpath, stbuf);
         } else {
             res = -ENOENT;
         }
     } else {
         /* if the file exist check that it have the selected tags*/
-        if (ht_entry_count(selected_tags) > 0) {
-            if (!file_matches_tags(filename, selected_tags)) {
+        if (ht_entry_count(p->selected_tags) > 0) {
+            if (!file_matches_tags(p->filename, p->selected_tags)) {
                 res = -ENOENT;
             }
-        } else if (!strcmp(filename, TAG_FILENAME)) {
+        } else if (!strcmp(p->filename, TAG_FILENAME)) {
             /* tag file is special and have "almost infinite" size */
             stbuf->st_size = (off_t) LONG_MAX;
         }
@@ -77,33 +86,26 @@ static int getattr_intra(
 }
 
 /* get attributes */
-int tag_getattr(const char *user_path, struct stat *stbuf)
+static int tag_getattr(const char *user_path, struct stat *stbuf)
 {
     int res;
-
-    LOG("getattr '%s'\n", user_path);
-
-    struct filedes *fd = filedes_create(user_path);
-
-    res = getattr_intra(
-        user_path, stbuf, fd->selected_tags, fd->realpath, fd->filename);
-
-    LOG("getattr returning '%s'\n", strerror(-res));
-
-    filedes_delete(fd);
+    LOG(_("getattr '%s'\n"), user_path);
+    struct path *path = path_create(user_path, 0);
+    res = getattr_intra(path, stbuf);
+    LOG(_("getattr returning '%s'\n"), strerror(-res));
+    path_delete(path);
     return res;
 }
 
-int tag_fgetattr(
+static int tag_fgetattr(
     const char *user_path, struct stat *stbuf, struct fuse_file_info *fi)
 {
-    struct filedes *fd = (struct filedes*)fi->fh;
-    return getattr_intra(
-        user_path, stbuf, fd->selected_tags, fd->realpath, fd->filename);
+    struct file_descriptor *fd = (struct file_descriptor*)fi->fh;
+    struct path *path = fd->path;
+    return getattr_intra(path, stbuf);
 }
 
-
-static int fd_unlink(struct filedes *fd)
+static int path_unlink(struct path *fd)
 {
     struct file *f;
 
@@ -119,7 +121,7 @@ static int fd_unlink(struct filedes *fd)
     return 0;
 }
 
-int tag_unlink(const char *user_path)
+static int tag_unlink(const char *user_path)
 {
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
@@ -128,18 +130,18 @@ int tag_unlink(const char *user_path)
     if (slash_count <= 1)
         return -EPERM;
 
-    struct filedes *fd = filedes_create(user_path);
-    res = fd_unlink(fd);
+    struct path *fd = path_create(user_path, 0);
+    res = path_unlink(fd);
 
-    filedes_delete(fd);
+    path_delete(fd);
     return res;
 }
 
-int tag_rmdir(const char *user_path)
+static int tag_rmdir(const char *user_path)
 {
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
-    LOG("rmdir '%s'\n", user_path);
+    LOG(_("rmdir '%s'\n"), user_path);
     if (slash_count > 1)
         return -EPERM;
 
@@ -154,10 +156,10 @@ int tag_rmdir(const char *user_path)
     return res;
 }
 
-int tag_mkdir(const char *user_path, mode_t mode)
+static int tag_mkdir(const char *user_path, mode_t mode)
 {
     int res = 0;
-    LOG("mkdir '%s'\n", user_path);
+    LOG(_("mkdir '%s'\n"), user_path);
     int slash_count = get_character_count(user_path, '/');
     if (slash_count > 1)
         return  -EPERM;
@@ -175,8 +177,7 @@ int tag_mkdir(const char *user_path, mode_t mode)
 }
 
 static void readdir_list_files(
-    void *buf, const char *user_path,
-    struct hash_table *selected_tags, fuse_fill_dir_t filler)
+    void *buf, struct path *dirpath, fuse_fill_dir_t filler)
 {
     struct dirent *dirent;
 
@@ -189,12 +190,10 @@ static void readdir_list_files(
             continue;
 
         /* only files whose contents matches tags in path */
-        char *virtpath = append_dir(user_path, dirent->d_name);
-        char *realpath = append_dir(realdirpath, dirent->d_name);
-        res = getattr_intra(
-            virtpath, &stbuf, selected_tags, realpath, dirent->d_name);
-        free(virtpath);
-        free(realpath);
+        struct path p;
+        path_set(&p, dirpath->virtpath, dirent->d_name, dirpath->selected_tags);
+        res = getattr_intra(&p, &stbuf);
+        path_free(&p);
         if (res < 0)
             continue;
         filler(buf, dirent->d_name, NULL, 0);
@@ -244,7 +243,7 @@ static struct hash_table *readdir_get_selected_files(
             struct tag *t = tag;
             if (!ht_has_entry(f->tags, t->value)) {
                 ht_remove_entry(selected_files, f->name);
-                print_debug("removing file %s from selected_files\n", f->name);
+                print_debug(_("removing file %s from selected_files\n"), f->name);
             }
         }
         ht_for_each(selected_tags, &each_tag, file);
@@ -298,28 +297,26 @@ static void readdir_list_tags_mode2(
     // peut etre faudrait il le cacher au lieu de le liberer ici
 }
 
-
 /* list files within directory */
-int tag_readdir(
+static int tag_readdir(
     const char *user_path, void *buf, fuse_fill_dir_t filler,
     off_t offset, struct fuse_file_info *fi)
 {
-    struct hash_table *selected_tags;
-    int res = 0;
+    struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
+    struct path *path = fd->path;
 
-    LOG("\n\nreaddir '%s'\n", user_path);
-
+    LOG(_("\n\nreaddir '%s'\n"), path->virtpath);
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
-    
-    compute_selected_tags(user_path, &selected_tags);
-    if (ht_entry_count(selected_tags) > 0)
-        readdir_list_tags_mode2(buf, selected_tags, filler);
-    else
-        readdir_list_tags_mode1(buf, selected_tags, filler);
-    readdir_list_files(buf, user_path, selected_tags, filler);
 
-    LOG("readdir returning %s\n\n\n", strerror(-res));
+    if (ht_entry_count(path->selected_tags) > 0)
+        readdir_list_tags_mode2(buf, path->selected_tags, filler);
+    else
+        readdir_list_tags_mode1(buf, path->selected_tags, filler);
+    readdir_list_files(buf, path, filler);
+
+    int res = 0;
+    LOG(_("readdir returning %s\n\n\n"), strerror(-res));
     return res;
 }
 
@@ -346,61 +343,60 @@ static int read_tag_file(char *buffer, size_t len, off_t off)
   out:
     fclose(tagfile);
     if (res < 0)
-        LOG("read_tag returning '%s'\n", strerror(-res));
+        LOG(_("read_tag returning '%s'\n"), strerror(-res));
     else
-        LOG("read_tag returning success (read %d)\n", res);
+        LOG(_("read_tag returning success (read %d)\n"), res);
     return res;
 }
 
 /* read the content of the file */
-int tag_read(
+static int tag_read(
     const char *path, char *buffer, size_t len,
     off_t off, struct fuse_file_info *fi)
 {
     int res = 0;
-    struct filedes *fd = (struct filedes*) fi->fh;
-    struct file *f = file_get_or_create(fd->filename);
+    struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
 
-    if (fd->is_tagfile)
+    if (fd->is_tag_file)
         return read_tag_file(buffer, len, off);
 
-    LOG("read '%s' for %ld bytes starting at offset %ld\n", path, len, off);
-    res = file_read(f, buffer, len, off);
+    LOG(_("read '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
+    res = fd_read(fd, buffer, len, off);
     if (res < 0)
-        LOG("read returning '%s'\n", strerror(-res));
+        LOG(_("read returning '%s'\n"), strerror(-res));
     else
-        LOG("read returning success (read %d)\n", res);
+        LOG(_("read returning success (read %d)\n"), res);
     return res;
 }
 
-int tag_write(
+static int tag_write(
     const char *path, const char *buffer, size_t len,
     off_t off, struct fuse_file_info *fi)
 {
     int res = 0;
-    struct filedes *fd = (struct filedes*) fi->fh;
-    struct file *f = file_get_or_create(fd->filename);
+    struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
 
-    if (fd->is_tagfile)
+    if (fd->is_tag_file)
         return -EPERM;
 
-    LOG("write '%s' for %ld bytes starting at offset %ld\n", path, len, off);
-    res = file_write(f, buffer, len, off);
+    LOG(_("write '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
+    res = fd_write(fd, buffer, len, off);
     if (res < 0)
-        LOG("write returning '%s'\n", strerror(-res));
+        LOG(_("write returning '%s'\n"), strerror(-res));
     else
-        LOG("write returning success (wrote %d)\n", res);
+        LOG(_("write returning success (wrote %d)\n"), res);
     return res;
 }
 
-int tag_mknod(const char *user_path, mode_t mode, dev_t device)
+static int tag_mknod(const char *user_path, mode_t mode, dev_t device)
 {
     int res;
-    char *realpath = tag_realpath(user_path);
+    char *realpath = path_realpath(user_path);
     if (access(realpath, F_OK) == 0) {
-        /* this condition allow user to have a more comprehensible error message
-           when a (hidden)corresponding directory exist in the root directory */
-        res = -EEXIST;
+        /* this condition may allow user to have a more comprehensible error
+           message when a (hidden) corresponding directory exist
+           in the root directory */
+        res = -EREMOTE;
     } else {
         res = mknod(realpath, mode, device);
     }
@@ -408,51 +404,49 @@ int tag_mknod(const char *user_path, mode_t mode, dev_t device)
     return res;
 }
 
-int tag_truncate(const char *user_path, off_t length)
+static int tag_truncate(const char *user_path, off_t length)
 {
     int res;
-    char *realpath = tag_realpath(user_path);
+    char *realpath = path_realpath(user_path);
     res = truncate(realpath, length);
     free(realpath);
     return res;
 }
 
-int tag_chmod(const char *user_path, mode_t mode)
+static int tag_chmod(const char *user_path, mode_t mode)
 {
     int res;
-    char *realpath = tag_realpath(user_path);
+    char *realpath = path_realpath(user_path);
     res = chmod(realpath, mode);
     free(realpath);
     return res;
 }
 
-int tag_chown(const char *user_path, uid_t user, gid_t group)
+static int tag_chown(const char *user_path, uid_t user, gid_t group)
 {
     int res;
-    char *realpath = tag_realpath(user_path);
+    char *realpath = path_realpath(user_path);
     res = chown(realpath, user, group);
     free(realpath);
     return res;
 }
 
-int tag_utime(const char *user_path, struct utimbuf *times)
+static int tag_utime(const char *user_path, struct utimbuf *times)
 {
     int res;
-    char *realpath = tag_realpath(user_path);
+    char *realpath = path_realpath(user_path);
     res = utime(realpath, times);
     free(realpath);
     return res;
 }
 
-static int fd_link(struct filedes *ffrom, struct filedes *fto)
+static int path_link(struct path *ffrom, struct path *fto)
 {
     int res;
     struct stat stbuf;
     struct file *f;
 
-    res = getattr_intra(
-        ffrom->virtpath, &stbuf, ffrom->selected_tags,
-        ffrom->realpath, ffrom->filename);
+    res = getattr_intra(ffrom, &stbuf);
     if (res < 0)
         return res;
     f = file_get_or_create(ffrom->filename);
@@ -464,93 +458,91 @@ static int fd_link(struct filedes *ffrom, struct filedes *fto)
     return res;
 }
 
-int tag_link(const char *from, const char *to)
+static int tag_link(const char *from, const char *to)
 {
     int res = 0;
-    LOG("link file from:'%s' - to:'%s'\n", from, to);
+    LOG(_("link file from:'%s' - to:'%s'\n"), from, to);
 
-    struct filedes *ffrom = filedes_create(from);
-    struct filedes *fto = filedes_create(to);
+    struct path *ffrom = path_create(from, 0);
+    struct path *fto = path_create(to, 0);
 
-    res = fd_link(ffrom, fto);
+    res = path_link(ffrom, fto);
 
-    filedes_delete(ffrom);
-    filedes_delete(fto);
+    path_delete(ffrom);
+    path_delete(fto);
 
-    LOG("link returning '%s'\n", strerror(-res));
+    LOG(_("link returning '%s'\n"), strerror(-res));
     return res;
 }
 
-int tag_rename(const char *from, const char *to)
+static int tag_rename(const char *from, const char *to)
 {
     int res = 0;
-    struct filedes *ffrom = filedes_create(from);
-    struct filedes *fto = filedes_create(to);
+    struct path *ffrom = path_create(from, 0);
+    struct path *fto = path_create(to, 0);
 
     if (ht_entry_count(ffrom->selected_tags) != 1 ||
         ht_entry_count(fto->selected_tags) != 1)
-    {
         res =  -EPERM;
-    }
-    else
-    {
-        fd_unlink(ffrom);
-        fd_link(ffrom, fto);
+    else {
+        path_unlink(ffrom);
+        path_link(ffrom, fto);
     }
 
-    filedes_delete(ffrom);
-    filedes_delete(fto);
+    path_delete(ffrom);
+    path_delete(fto);
 
     return res;
 }
 
-static int ioctl_read_tags(struct filedes *fd, void *data_)
+static int ioctl_read_tags(struct file_descriptor *fd, struct tag_ioctl *data)
 {
-    int len;
-    char *str;
-    struct tag_ioctl *data = data_;
-    struct file *f = file_get(fd->filename);
+    struct file *f = file_get(fd->path->filename);
     if (NULL == f)
         return -ENOENT;
-    
-    str = file_get_tags_string(f, &len);
-    print_debug("file tag string : %s\n", str);
+
+    int len;
+    char *str = file_get_tags_string(f, &len);
+    print_debug(_("file tag string : %s\n"), str);
     strncpy(data->buf, str, BUFSIZE);
     data->buf[BUFSIZE] = '\0';
 
-    print_debug("copied data : %s\n", data->buf);
-    if (len > BUFSIZE) {
+    print_debug(_("copied data : %s\n"), data->buf);
+    if (len > BUFSIZE)
         data->size = BUFSIZE;
-    } else {
+    else
         data->size = len;
-    }
     free(str);
     return 0;
 }
 
-int tag_ioctl(
+static int tag_ioctl(
     const char *path, int cmd, void *arg,
     struct fuse_file_info *fi, unsigned int flags, void *data)
 {
     (void) flags;
-    struct filedes *fd = (struct filedes*) fi->fh;
-        
-    if (fd->is_tagfile || fd->is_directory)
+    struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
+
+    if (fd->is_tag || fd->is_tag_file)
         return -EINVAL;
+
     if (flags & FUSE_IOCTL_COMPAT)
         return -ENOSYS;
-    
+
     switch (cmd) {
-    case TAGIOC_READ_TAGS:
+    case TAG_IOC_READ_TAGS:
         return ioctl_read_tags(fd, data);
         break;
     }
     return -EINVAL;
 }
 
-struct fuse_operations tag_oper = {
-    .open = tag_open,
-    .release = tag_release,
+static struct fuse_operations tag_oper = {
+    .open = tag_open_file,
+    .release = tag_release_generic,
+
+    .opendir = tag_open_dir,
+    .releasedir = tag_release_generic,
 
     .getattr = tag_getattr,
     .fgetattr = tag_fgetattr,
@@ -573,7 +565,68 @@ struct fuse_operations tag_oper = {
 
     .ioctl = tag_ioctl,
 
-    .flag_nullpath_ok = 0,
+    .flag_nullpath_ok = 1,
 };
 
+static void set_root_directory(const char *path)
+{
+    realdirpath = realpath(path, NULL);
+    if (NULL == realdirpath) {
+        fprintf(stderr, "%s: %s\n", path, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    realdir = opendir(realdirpath);
+    if (!realdir) {
+        fprintf(stderr, "%s: %s\n",
+                realdirpath, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
 
+    tagdbpath = append_dir(path, TAG_FILENAME);
+    print_debug(_("tag filename = %s\n"), tagdbpath);
+    parse_tags_db(tagdbpath, tag_oper.getattr);
+}
+
+static void save_tag_db(void)
+{
+    char *output_db_filename;
+    output_db_filename = aasprintf("%s.new", tagdbpath);
+    FILE *f = fopen(output_db_filename, "w");
+    if (NULL != f) {
+        tag_db_dump(f);
+        fclose(f);
+    }
+    free(output_db_filename);
+}
+
+int main(int argc, char *argv[])
+{
+    int err;
+
+    if (argc < 2) {
+        fprintf(stderr, _("usage: %s target_directory mountpoint\n"), argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+
+    /* find the absolute directory because fuse_main()
+     * doesn't launch the daemon in the same current directory.
+     */
+    setlocale(LC_ALL, "");
+    set_root_directory(argv[1]);
+
+    argv++; argc--;
+
+    LOG(_("starting %s in %s\n"), argv[0], realdirpath);
+    err = fuse_main(argc, argv, &tag_oper, NULL);
+    LOG(_("stopped %s with return code %d\n"), argv[0], err);
+
+    save_tag_db();
+
+    closedir(realdir);
+    free(realdirpath);
+    free(tagdbpath);
+    printf(_("exiting normal way!"));
+
+    return err;
+}

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+cd $(dirname $0)
+
+xgettext -k_ {tracker,cutil}/*.{c,h} --from-code='utf-8' -o trackme.po

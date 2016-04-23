@@ -841,6 +841,7 @@ void tag_exit(void *user_data)
     FILE *f = fopen(newtagfile, "w");
     if (NULL != f) {
         tag_db_dump(f);
+        fclose(f);
     }
     LOG("%s\n", newtagfile);
     free(newtagfile);

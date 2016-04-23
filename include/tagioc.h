@@ -14,7 +14,7 @@ struct tag_ioctl {
 };
 
 enum {
-    TAGIOC_READ_TAGS = _IOWR('E', 0, struct tag_ioctl),
+    TAG_IOC_READ_TAGS = _IOWR('E', 0, struct tag_ioctl),
 };
 
 #endif //TAGIO_H

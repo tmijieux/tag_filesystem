@@ -1,11 +1,13 @@
-#include "log.h"
 #include <stdio.h>
 
+#include "./util.h"
+#include "./log.h"
+
 #define LOGFILE "tagfs.log"
+
 FILE *mylog;
 
-__attribute__((constructor))
-static void log_init(void)
+INITIALIZER(log_init)
 {
     /* append logs to previous executions */
     mylog = fopen(LOGFILE, "a");

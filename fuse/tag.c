@@ -1,25 +1,20 @@
-#include <stdbool.h>
-#include <libgen.h>
-#include <string.h>
-#include "tag.h"
-#include "file.h"
-#include "log.h"
+#include "./sys.h"
+#include "./util.h"
+#include "./tag.h"
+#include "./file.h"
+#include "./log.h"
 
 #include "cutil/hash_table.h"
 #include "cutil/list.h"
 #include "cutil/string2.h"
 
+#define MAX_LENGTH 1000
+
 static struct hash_table *tags;
 
-__attribute__((constructor))
-static void tag_init(void)
+INITIALIZER(tag_init)
 {
     tags = ht_create(0, NULL);
-
-    #ifdef DEBUG
-    tag_get_or_create("nuit");
-    tag_get_or_create("paysage");
-    #endif
 }
 
 static struct tag *tag_new(const char *value)
@@ -125,11 +120,11 @@ void tag_db_dump(FILE *output)
     for (int i = 1; i <= s; ++i) {
         struct file *f = list_get(l, i);
 
-         if (ht_entry_count(f->tags) == 0)
-             continue;
+        if (ht_entry_count(f->tags) == 0)
+            continue;
 
         fprintf(output, "[%s]\n", f->name);
-        DBG("print file %s\n", f->name);
+        DBG(_("print file %s\n"), f->name);
         void print_tag(const char *key, void *tag, void *value)
         {
             struct tag *t = tag;
@@ -137,5 +132,101 @@ void tag_db_dump(FILE *output)
         }
         ht_for_each(f->tags, &print_tag, NULL);
         fprintf(output, "\n");
+    }
+}
+
+static char *copy_word_until(char *word, char end)
+{
+    return strndup(word, strchr(word, end) - word);
+}
+
+static struct file *parse_file(
+    char *word, int(*getattr)(const char*,struct stat*))
+{
+    struct stat st;
+    struct file *f = NULL;
+
+    char *data = copy_word_until(word, ']');
+    printf(_("file %s\n"), data);
+    if (getattr(data, &st) >= 0)
+        f = file_get_or_create(data);
+    else
+        print_error(_("file %s do not exist!\n"), data);
+    free(data);
+    return f;
+}
+
+static void parse_tag(struct file *f, char *word)
+{
+    char *data = copy_word_until(word, '\n');
+    if (strlen(data)) {
+        struct tag *t = tag_get_or_create(data);
+        printf(_("tag %s\n"), data);
+        if (f != NULL)
+            tag_file(t, f);
+    }
+    free(data);
+}
+
+static void parse_tags_db2(FILE *fi, int (*getattr)(const char *, struct stat*))
+{
+    int i;
+    struct file *f = NULL;
+    char word[MAX_LENGTH] = "";
+
+    while (fgets(word, MAX_LENGTH, fi) != NULL) {
+        if (word[0] == '#')
+            continue;
+        for (i = 0; isspace(word[i]); ++i)
+            ;
+        if (word[i] == '[') {
+            f = parse_file(word+i+1, getattr);
+        } else {
+            parse_tag(f, word+i);
+        }
+    }
+}
+
+void parse_tags_db(
+    const char *filename, int (*getattr)(const char *, struct stat*))
+{
+    FILE *fi = NULL;
+    fi = fopen(filename, "r+");
+    if (fi != NULL) {
+        parse_tags_db2(fi, getattr);
+    }
+    fclose(fi);
+}
+
+void update_lib(char *tagFile)
+{
+    struct list *filesList = file_list();
+    FILE *lib = NULL;
+    lib = fopen(tagFile, "w+");
+
+    if (lib != NULL) {
+        int s1 = list_size(filesList);
+        for (int i = 1; i <= s1; i++) {
+            struct file *fi = list_get(filesList, i);
+
+            if (fi != NULL) {
+                struct hash_table *fiTags = fi->tags;
+                struct list *fiTagsList = ht_to_list(fiTags);
+
+                fprintf(lib, "[%s]\n", fi->name);
+                int s2 = list_size(fiTagsList);
+                for (int j = 1; j <= s2; ++j) {
+                    struct tag *t = list_get(fiTagsList, j);
+                    if (t != NULL) {
+                        fprintf(lib, "%s\n", t->value);
+                    } else {
+                        print_debug(_("la structure tag n'existe pas\n"));
+                    }
+                }
+            } else  {
+                print_debug(_("la structure file n'existe pas\n"));
+            }
+        }
+        fclose(lib);
     }
 }

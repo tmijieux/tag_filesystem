@@ -1,12 +1,12 @@
-#include "sys.h"
-#include "util.h"
-#include "file.h"
-#include "tag.h"
+#include "./sys.h"
+#include "./util.h"
+#include "./path.h"
+#include "./file.h"
+#include "./tag.h"
 
 static struct hash_table *files;
 
-__attribute__((constructor))
-static void file_init(void)
+INITIALIZER(file_init)
 {
     files = ht_create(0, NULL);
 }
@@ -28,14 +28,10 @@ struct list *file_list(void)
 
 static struct file *file_new(const char *name)
 {
-    struct file *t = calloc(sizeof*t, 1);
-    char *tmp = append_dir(realdirpath, name);
-    t->realpath = tag_realpath(tmp);
-    free(tmp);
+    struct file *t = malloc(sizeof*t);
     t->name = strdup(name);
+    t->realpath = path_realpath(name);
     t->tags = ht_create(0, NULL);
-    t->fd = -1;
-    t->opened = false;
     return t;
 }
 
@@ -58,63 +54,6 @@ struct file* file_get(const char *value)
         return t;
     }
     return NULL;
-}
-
-int file_open(struct file *f, int flags)
-{
-    int res = 0;
-    if (false == f->opened) {
-        f->fd = open(f->realpath, flags);
-        f->opened = true;
-        if (res < 0) {
-            print_debug("lulz %s\n", strerror(errno));
-            res = -errno;
-        } else {
-            res = 0;
-        }
-    }
-    return res;
-}
-
-int file_close(struct file *f)
-{
-    if (true == f->opened) {
-        int r = close(f->fd);
-        f->opened = false;
-        f->fd = -1;
-        return r;
-    }
-    return 0;
-}
-
-int file_read(struct file *f, char *buffer, size_t len, off_t off)
-{
-    int res = 0;
-    if (lseek(f->fd, off, SEEK_SET) < 0) {
-        return -errno;
-    }
-    res = read(f->fd, buffer, len);
-    if (res >= 0 && res < len) {
-        for (int i = res; i < len; ++i) {
-            buffer[i] = 0;
-        }
-    }
-    if (res < 0)
-        res = -errno;
-
-    return res;
-}
-
-int file_write(struct file *f, const char *buffer, size_t len, off_t off)
-{
-    int res = 0;
-    if (lseek(f->fd, off, SEEK_SET) < 0) {
-        return -errno;
-     }
-    res = write(f->fd, buffer, len);
-    if (res < 0)
-        res = -errno;
-    return res;
 }
 
 char *file_get_tags_string(const struct file *f, int *size)

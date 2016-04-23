@@ -11,5 +11,6 @@ char *str_replace_char(const char *str, char from, char to);
 int character_is_in_string(int c, const char *str);
 void strstripc(char *str, char c);
 char *strstrip(const char *str);
+char *aasprintf(const char *fmt, ...);
 
 #endif //STRING2_H

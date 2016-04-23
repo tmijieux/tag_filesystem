@@ -33,6 +33,17 @@ int asprintf(char **strp, const char *fmt, ...)
     return n;
 }
 
+char *aasprintf(const char *fmt, ...)
+{
+    char *ret = NULL;
+    va_list ap;
+    va_start(ap, fmt);
+    if (vasprintf(&ret, fmt, ap) < 0)
+        perror("vasprintf");
+    va_end(ap);
+    return ret;
+}
+
 int character_is_in_string(int c, const char *str)
 {
     int i;

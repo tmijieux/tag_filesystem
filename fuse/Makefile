@@ -1,8 +1,10 @@
 TARGET=tagfs
 SRC=$(wildcard *.c) $(wildcard cutil/*.c)
-CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
-	-Wno-unused-label -Wno-unused-function -iquote. \
-	$(shell pkg-config --cflags fuse)
+
+CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
+CFLAGS+=-Wno-unused-label -Wno-unused-function -iquote.
+CFLAGS+=$(shell pkg-config --cflags fuse)
+CFLAGS+=-I ../include
 
 ifdef DEBUG
 	CFLAGS+=-ggdb -O0 -DDEBUG
@@ -48,3 +50,7 @@ stop:
 
 kill:
 	kill -9 $(shell pidof tagfs) || true
+
+all_in_one:
+	../scripts/all_in_one
+

@@ -12,8 +12,10 @@
 #include "cutil/string2.h"
 #include "cutil/hash_table.h"
 #include "cutil/list.h"
+#include "../initializer.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
+
 
 int get_character_count(const char *str, char c);
 char *basenamedup(const char *dir);

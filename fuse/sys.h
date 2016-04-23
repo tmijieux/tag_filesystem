@@ -8,5 +8,7 @@
 #include <dirent.h>
 #include <libgen.h>
 #include <limits.h>
+#include <locale.h>
+#include <ctype.h>
 
 #endif //SYS_H

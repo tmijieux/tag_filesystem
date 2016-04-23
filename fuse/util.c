@@ -33,7 +33,7 @@ char *dirnamedup(const char *dir)
 
 char *append_dir(const char *dir, const char *file)
 {
-    char *str;
+    char *str = NULL;
     if (asprintf(&str, "%s/%s", dir, file) < 0) {
         print_error("asprint allocation failed: %s\n", strerror(errno));
     }
