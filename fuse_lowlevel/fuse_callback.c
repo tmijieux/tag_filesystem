@@ -1,3 +1,5 @@
+#include "tagioc.h"
+
 #include "./sys.h"
 #include "./util.h"
 #include "./fuse_callback.h"
@@ -5,7 +7,6 @@
 #include "./real.h"
 #include "./file.h"
 #include "./file_descriptor.h"
-#include "../tagio.h"
 #include "./inode.h"
 
 struct dirbuf {
@@ -813,7 +814,7 @@ void tag_ioctl(fuse_req_t req, fuse_ino_t number, int cmd, void *arg,
         fuse_reply_err(req, ENOSYS);
     
     switch (cmd) {
-    case TAGIOC_READ_TAGS:
+    case TAG_IOC_READ_TAGS:
         f = file_get_or_create(ino->name);
         ioctl_read_tags(req, f, in_buf);
         return;
