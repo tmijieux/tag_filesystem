@@ -654,41 +654,6 @@ void tag_setattr(
     fuse_reply_attr(req, &f->ino->st, 1.0);
 }
 
-int tag_truncate(const char *user_path, off_t length)
-{
-    int res;
-    char *realpath = tag_realpath(user_path);
-    res = truncate(realpath, length);
-    free(realpath);
-    return res;
-}
-
-int tag_chmod(const char *user_path, mode_t mode)
-{
-    int res;
-    char *realpath = tag_realpath(user_path);
-    res = chmod(realpath, mode);
-    free(realpath);
-    return res;
-}
-
-int tag_chown(const char *user_path, uid_t user, gid_t group)
-{
-    int res;
-    char *realpath = tag_realpath(user_path);
-    res = chown(realpath, user, group);
-    free(realpath);
-    return res;
-}
-
-int tag_utime(const char *user_path, struct utimbuf *times)
-{
-    int res;
-    char *realpath = tag_realpath(user_path);
-    res = utime(realpath, times);
-    free(realpath);
-    return res;
-}
 
 void tag_link(
     fuse_req_t req, fuse_ino_t number, fuse_ino_t newparent, const char *newname)
@@ -878,9 +843,5 @@ struct fuse_lowlevel_ops tag_oper = {
 
     .ioctl = tag_ioctl,
 
-//    .truncate = tag_truncate,
-//    .chmod = tag_chmod,
-//    .chown = tag_chown,
-//    .utime = tag_utime,
 //    .flag_nullpath_ok = 0,
 };

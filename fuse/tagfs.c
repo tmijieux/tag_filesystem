@@ -407,6 +407,9 @@ static int tag_mknod(const char *user_path, mode_t mode, dev_t device)
 static int tag_truncate(const char *user_path, off_t length)
 {
     int res;
+    if (!strcmp(user_path, "/.tags") || !strcmp(user_path, ".tags"))
+        return -EPERM;
+
     char *realpath = path_realpath(user_path);
     res = truncate(realpath, length);
     free(realpath);
