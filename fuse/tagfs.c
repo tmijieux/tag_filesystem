@@ -105,6 +105,40 @@ static int tag_fgetattr(
     return getattr_intra(path, stbuf);
 }
 
+
+static int tag_setxattr(
+    const char *user_path, const char *name,
+    const char *value, size_t size, int flags)
+{
+    return -EPERM;
+}
+
+static int tag_getxattr(
+    const char *user_path, const char *name,
+    char *value, size_t size)
+{
+    int err, len;
+    char *str;
+    struct stat st;
+    struct path *p;
+    struct file *f;
+
+    if (strcmp(name, "tags") != 0)
+        return -ENODATA;
+
+    p = path_create(user_path, 0);
+    err = getattr_intra(p, &st);
+    if (err)
+        goto out;
+    f = file_get_or_create(p->filename);
+    str = file_get_tags_string(f, &len);
+    strncpy(value, str, size);
+    err = len;
+out:
+    path_delete(p);
+    return err;
+}
+
 static int path_unlink(struct path *fd)
 {
     struct file *f;
@@ -340,7 +374,7 @@ static int read_tag_file(char *buffer, size_t len, off_t off)
             buffer[i] = 0;
         }
     }
-  out:
+out:
     fclose(tagfile);
     if (res < 0)
         LOG(_("read_tag returning '%s'\n"), strerror(-res));
@@ -549,6 +583,9 @@ static struct fuse_operations tag_oper = {
 
     .getattr = tag_getattr,
     .fgetattr = tag_fgetattr,
+
+    .setxattr = tag_setxattr,
+    .getxattr = tag_getxattr,
 
     .read = tag_read,
     .readdir = tag_readdir,
