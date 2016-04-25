@@ -15,6 +15,6 @@ create table tag_file
 	t_id		integer,
 	f_id		integer,
 	foreign key(t_id) references tag(t_id),
-	foreign key(f_id) references tag(f_id),
+	foreign key(f_id) references file(f_id),
 	primary key (t_id, f_id)
 );

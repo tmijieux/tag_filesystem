@@ -154,7 +154,6 @@ static char *build_selected_file_query(
                  tmp) < 0)
         perror("asprintf");
     free(tmp);
-
     if (!use_id) {
         tmp = query;
         if (asprintf(&query,
@@ -167,7 +166,7 @@ static char *build_selected_file_query(
 
 char *build_remaining_tags_query(char *selected_files_query)
 {
-    char *query, *tmp;
+    char *query = NULL, *tmp = NULL;
 
     if (asprintf(&query, "select distinct t_id from tag_file where f_id in (%s)",
                  selected_files_query) < 0)
@@ -176,7 +175,7 @@ char *build_remaining_tags_query(char *selected_files_query)
     if (asprintf(&query, "select t_name from tag where t_id in (%s)",
                  tmp) < 0)
         perror("asprintf");
-    
+    free(tmp);
     return query;
 }
 
