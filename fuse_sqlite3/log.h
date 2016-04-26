@@ -25,9 +25,12 @@ extern FILE *mylog;
 #ifdef DEBUG
 
 #define LOG(args...) do {                       \
+        int save_errno;                         \
+        save_errno = errno;                     \
         fprintf(mylog, args);                   \
         fflush(mylog);                          \
         print_log(args);                        \
+        errno = save_errno;                     \
     } while (0)
 
 #define DBG(args...) do {                       \

@@ -2,9 +2,9 @@ TARGET=tagfs
 SRC=$(wildcard *.c) $(wildcard cutil/*.c)
 
 CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
-CFLAGS+=-Wno-unused-label -Wno-unused-function -iquote.
+CFLAGS+=-iquote.
 CFLAGS+=$(shell pkg-config --cflags fuse)
-CFLAGS+=-I ../include
+CFLAGS+=-I ../include -I ..
 
 ifdef DEBUG
 	CFLAGS+=-ggdb -O0 -DDEBUG
@@ -13,6 +13,7 @@ else
 endif
 
 LDFLAGS=$(shell pkg-config --libs fuse)
+LDFLAGS+=$(shell pkg-config --libs sqlite3)
 
 OBJ=$(SRC:.c=.o) 
 DEP=$(SRC:.c=.d) 

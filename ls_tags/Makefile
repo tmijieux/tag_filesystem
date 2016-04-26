@@ -1,8 +1,8 @@
-TARGET=print_tags
+TARGET=ls_tags
 SRC=$(wildcard *.c) $(wildcard cutil/*.c)
-CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
-	-Wno-unused-label -Wno-unused-function -iquote. \
-	$(shell pkg-config --cflags --libs fuse)
+
+CFLAGS=-Wall -std=gnu99 -D_GNU_SOURCE
+CFLAGS+=-iquote.
 CFLAGS+=-I../include
 
 ifdef DEBUG

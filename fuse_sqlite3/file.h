@@ -6,9 +6,9 @@ struct file;
 #include "util.h"
 
 struct file {
+    int id;
     char *name;
     char *realpath;
-    struct hash_table *tags;
 };
 
 #include <stdio.h>
@@ -20,8 +20,6 @@ struct file {
 
 struct file* file_get_or_create(const char *value);
 struct file* file_get(const char *value);
-void file_add_tag(struct file *f, struct tag *t);
-void file_remove_tag(struct file *f, struct tag *t);
 char *file_get_tags_string(const struct file *f, int *size);
 struct list *file_list(void);
 

@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "../tagio.h"
+#include "tagioc.h"
 
 #define BUFSIZE 1024
 
@@ -18,14 +18,13 @@ void print_tag_list(const char *filename)
         return;
     }
     struct tag_ioctl io;
-    if (ioctl(fd, TAGIOC_READ_TAGS, &io) < 0) {
+    if (ioctl(fd, TAG_IOC_READ_TAGS, &io) < 0) {
         perror(filename);
     } else {
         printf("%s: %s\n", filename, io.buf);
     }
     close(fd);
 }
-
 
 int main(int argc, char *const argv[])
 {

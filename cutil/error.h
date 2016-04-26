@@ -13,36 +13,32 @@
 
 #define _(X) gettext((X))
 
-void print_error(
+void __print_error(
     const char *filename, int line,
     const char *pretty_function, const char *format, ...);
-void print_log(
+void __print_log(
     const char *filename, int line,
     const char *pretty_function, const char *format, ...);
-
-#ifndef ERROR_H_IMPLEMENTATION__
-# define print_error(x, ...)  print_error(                                    \
-    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
-
-# define print_log(x, ...)  print_log(                                    \
-    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
-#endif
 
 #ifdef DEBUG
-
-void print_debug(
+void __print_debug(
     const char *filename, int line,
     const char *pretty_function,const char *format, ...);
+#endif
 
-# ifndef ERROR_H_IMPLEMENTATION__
-#  define print_debug(x, ...)  print_debug(                                   \
+
+#define print_error(x, ...)  __print_error(                             \
     __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
-# endif
 
+#define print_log(x, ...)  __print_log(                                 \
+    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
+
+
+#ifdef DEBUG
+#    define print_debug(x, ...)  __print_debug(                         \
+    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
 #else
-
-# define print_debug(f, ...)
-
+#    define print_debug(f, ...)
 #endif
 
 #endif //ERROR_H

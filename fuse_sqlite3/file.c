@@ -6,19 +6,15 @@
 
 static struct hash_table *files;
 
+static int next_file_id(void)
+{
+    static int id = 0;
+    return id++;
+}
+
 INITIALIZER(file_init)
 {
     files = ht_create(0, NULL);
-}
-
-void file_add_tag(struct file *f, struct tag *t)
-{
-    ht_add_unique_entry(f->tags, t->value, t);
-}
-
-void file_remove_tag(struct file *f, struct tag *t)
-{
-    ht_remove_entry(f->tags, t->value);
 }
 
 struct list *file_list(void)
@@ -31,7 +27,7 @@ static struct file *file_new(const char *name)
     struct file *t = malloc(sizeof*t);
     t->name = strdup(name);
     t->realpath = path_realpath(name);
-    t->tags = ht_create(0, NULL);
+    t->id = next_file_id();
     return t;
 }
 
@@ -58,17 +54,6 @@ struct file* file_get(const char *value)
 
 char *file_get_tags_string(const struct file *f, int *size)
 {
-    int c = 0;
     char *str = strdup("");
-    void each_tag(const char *n, void *tag, void *arg)
-    {
-        char *tmp;
-        struct tag *t = tag;
-        tmp = str;
-        *size = asprintf(&str, "%s%s%s", str, 0==c?"":" ",t->value);
-        free(tmp);
-        ++c;
-    }
-    ht_for_each(f->tags, each_tag, NULL);
     return str;
 }

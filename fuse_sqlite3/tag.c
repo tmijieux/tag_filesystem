@@ -3,6 +3,7 @@
 #include "./tag.h"
 #include "./file.h"
 #include "./log.h"
+#include "./db.h"
 
 #include "cutil/hash_table.h"
 #include "cutil/list.h"
@@ -11,6 +12,12 @@
 #define MAX_LENGTH 1000
 
 static struct hash_table *tags;
+
+static int next_tag_id(void)
+{
+    static int id = 0;
+    return id++;
+}
 
 INITIALIZER(tag_init)
 {
@@ -21,7 +28,8 @@ static struct tag *tag_new(const char *value)
 {
     struct tag *t = calloc(sizeof*t, 1);
     t->value = strdup(value);
-    t->files = ht_create(0, NULL);
+    db_add_tag(t->value);
+    t->id = next_tag_id();
     return t;
 }
 
@@ -51,23 +59,8 @@ bool tag_exist(const char *value)
     return (INVALID_TAG != tag_get(value));
 }
 
-void tag_add_file(struct tag *t, struct file *f)
-{
-    ht_add_unique_entry(t->files, f->name, f);
-}
-
-void tag_remove_file(struct tag *t, struct file *f)
-{
-    ht_remove_entry(t->files, f->name);
-}
-
 void tag_remove(struct tag *t)
 {
-    void remove_tag(const char *name, void *f, void *t)
-    {
-        file_remove_tag(f, t);
-    }
-    ht_for_each(t->files, &remove_tag, t);
     ht_remove_entry(tags, t->value);
     free(t);
 }
@@ -102,37 +95,16 @@ struct list *tag_list(void)
 
 void tag_file(struct tag *t, struct file *f)
 {
-    file_add_tag(f, t);
-    tag_add_file(t, f);
+    db_tag_file(t->id, f->id);
 }
 
 void untag_file(struct tag *t, struct file *f)
 {
-    file_remove_tag(f, t);
-    tag_remove_file(t, f);
 }
 
 void tag_db_dump(FILE *output)
 {
-    struct list *l = file_list();
-    int s = list_size(l);
-    DBG("read tag list size = %d\n", s);
-    for (int i = 1; i <= s; ++i) {
-        struct file *f = list_get(l, i);
 
-        if (ht_entry_count(f->tags) == 0)
-            continue;
-
-        fprintf(output, "[%s]\n", f->name);
-        DBG(_("print file %s\n"), f->name);
-        void print_tag(const char *key, void *tag, void *value)
-        {
-            struct tag *t = tag;
-            fprintf(output, "%s\n", t->value);
-        }
-        ht_for_each(f->tags, &print_tag, NULL);
-        fprintf(output, "\n");
-    }
 }
 
 static char *copy_word_until(char *word, char end)
@@ -196,37 +168,4 @@ void parse_tags_db(
         parse_tags_db2(fi, getattr);
     }
     fclose(fi);
-}
-
-void update_lib(char *tagFile)
-{
-    struct list *filesList = file_list();
-    FILE *lib = NULL;
-    lib = fopen(tagFile, "w+");
-
-    if (lib != NULL) {
-        int s1 = list_size(filesList);
-        for (int i = 1; i <= s1; i++) {
-            struct file *fi = list_get(filesList, i);
-
-            if (fi != NULL) {
-                struct hash_table *fiTags = fi->tags;
-                struct list *fiTagsList = ht_to_list(fiTags);
-
-                fprintf(lib, "[%s]\n", fi->name);
-                int s2 = list_size(fiTagsList);
-                for (int j = 1; j <= s2; ++j) {
-                    struct tag *t = list_get(fiTagsList, j);
-                    if (t != NULL) {
-                        fprintf(lib, "%s\n", t->value);
-                    } else {
-                        print_debug(_("la structure tag n'existe pas\n"));
-                    }
-                }
-            } else  {
-                print_debug(_("la structure file n'existe pas\n"));
-            }
-        }
-        fclose(lib);
-    }
 }
