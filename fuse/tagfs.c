@@ -529,8 +529,8 @@ static int tag_rename(const char *from, const char *to)
         ht_entry_count(fto->selected_tags) != 1)
         res =  -EPERM;
     else {
-        path_unlink(ffrom);
         path_link(ffrom, fto);
+        path_unlink(ffrom);
     }
 
     path_delete(ffrom);
