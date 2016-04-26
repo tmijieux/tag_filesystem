@@ -60,6 +60,7 @@ char *file_get_tags_string(const struct file *f, int *size)
 {
     int c = 0;
     char *str = strdup("");
+    *size = 0;
     void each_tag(const char *n, void *tag, void *arg)
     {
         char *tmp;

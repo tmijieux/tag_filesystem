@@ -130,10 +130,17 @@ static int tag_getxattr(
     err = getattr_intra(p, &st);
     if (err)
         goto out;
+
+    if (S_ISDIR(st.st_mode)) {
+        err = -EISDIR;
+        goto out;
+    }
+
     f = file_get_or_create(p->filename);
     str = file_get_tags_string(f, &len);
     strncpy(value, str, size);
     err = len;
+    free(str);
 out:
     path_delete(p);
     return err;
