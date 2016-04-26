@@ -64,13 +64,9 @@ static int getattr_intra(struct path *p, struct stat *stbuf)
         LOG(_("error ::%s :: %s\n"), p->realpath, strerror(errno));
         /* if the file doesn't exist, check if it's a tag
            (or the root) directory and stat the main directory instead */
-        if (!strcmp(p->virtpath, "/") ||
-            (tag_exist(p->filename) &&
-             !ht_has_entry(p->selected_tags, p->filename))) {
-            res = stat(realdirpath, stbuf);
-        } else {
-            res = -ENOENT;
-        }
+
+	res = stat(realdirpath, stbuf);
+     
     } else {
         /* if the file exist check that it have the selected tags*/
         if (ht_entry_count(p->selected_tags) > 0) {
@@ -507,9 +503,13 @@ static int tag_link(const char *from, const char *to)
     int res = 0;
     LOG(_("link file from:'%s' - to:'%s'\n"), from, to);
 
+  
+    tag_mkdir(to, 0);
+    
+   
     struct path *ffrom = path_create(from, 0);
     struct path *fto = path_create(to, 0);
-
+ 
     res = path_link(ffrom, fto);
 
     path_delete(ffrom);
