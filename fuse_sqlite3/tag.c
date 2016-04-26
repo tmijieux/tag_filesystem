@@ -5,9 +5,9 @@
 #include "./log.h"
 #include "./db.h"
 
-#include "cutil/hash_table.h"
-#include "cutil/list.h"
-#include "cutil/string2.h"
+#include "../cutil/hash_table.h"
+#include "../cutil/list.h"
+#include "../cutil/string2.h"
 
 #define MAX_LENGTH 1000
 

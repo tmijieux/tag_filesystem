@@ -5,7 +5,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "cutil/error.h"
+#include "../cutil/error.h"
 
 #define RED_COLOR "31;1"
 #define GREEN_COLOR "32"

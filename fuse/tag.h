@@ -11,7 +11,7 @@ struct tag {
 
 #include <stdbool.h>
 #include "file.h"
-#include "cutil/hash_table.h"
+#include "../cutil/hash_table.h"
 
 
 struct tag* tag_get_or_create(const char *value);

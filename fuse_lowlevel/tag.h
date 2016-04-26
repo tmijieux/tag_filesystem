@@ -2,7 +2,7 @@
 #define TAG_H
 
 #include "./fuse_callback.h"
-#include "./cutil/uthash.h"
+#include "./../cutil/uthash.h"
 
 struct tag {
     char *value;
@@ -15,7 +15,7 @@ struct tag {
 
 #include <stdbool.h>
 #include "file.h"
-#include "cutil/hash_table.h"
+#include "../cutil/hash_table.h"
 
 struct tag* tag_get_or_create(const char *value);
 struct tag* tag_get(const char *value);

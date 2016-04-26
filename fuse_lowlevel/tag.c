@@ -5,9 +5,9 @@
 #include "file.h"
 #include "log.h"
 
-#include "cutil/hash_table.h"
-#include "cutil/list.h"
-#include "cutil/string2.h"
+#include "../cutil/hash_table.h"
+#include "../cutil/list.h"
+#include "../cutil/string2.h"
 #include "./inode.h"
 
 static struct hash_table *tags;

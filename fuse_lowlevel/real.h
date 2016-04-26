@@ -3,7 +3,7 @@
 
 struct file_descriptor;
 
-#include "cutil/hash_table.h"
+#include "../cutil/hash_table.h"
 #include "file.h"
 #include <stdbool.h>
 #include <dirent.h>

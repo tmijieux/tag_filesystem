@@ -6,7 +6,7 @@
 
 struct file_descriptor;
 
-#include "./cutil/hash_table.h"
+#include "./../cutil/hash_table.h"
 #include "./file.h"
 
 extern DIR *realdir;

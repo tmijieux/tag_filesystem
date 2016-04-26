@@ -8,11 +8,11 @@
 
 #include "log.h"
 
-#include "cutil/error.h"
-#include "cutil/string2.h"
-#include "cutil/hash_table.h"
-#include "cutil/list.h"
-#include "./cutil/uthash.h"
+#include "../cutil/error.h"
+#include "../cutil/string2.h"
+#include "../cutil/hash_table.h"
+#include "../cutil/list.h"
+#include "./../cutil/uthash.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 

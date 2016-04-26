@@ -3,7 +3,7 @@
 #include <libgen.h>
 #include <string.h>
 
-#include "cutil/error.h"
+#include "../cutil/error.h"
 #include "util.h"
 
 int get_character_count(const char *str, char c)

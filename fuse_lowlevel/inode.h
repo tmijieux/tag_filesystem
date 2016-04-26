@@ -1,7 +1,7 @@
 #ifndef INODE_H
 #define INODE_H
 
-#include "./cutil/uthash.h"
+#include "./../cutil/uthash.h"
 #include "./fuse_callback.h"
 
 struct inode;
