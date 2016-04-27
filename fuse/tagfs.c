@@ -504,12 +504,9 @@ static int tag_link(const char *from, const char *to)
     LOG(_("link file from:'%s' - to:'%s'\n"), from, to);
 
   
-    tag_mkdir(to, 0);
-    
-   
     struct path *ffrom = path_create(from, 0);
     struct path *fto = path_create(to, 0);
- 
+    tag_mkdir(fto->virtdirpath, 0);
     res = path_link(ffrom, fto);
 
     path_delete(ffrom);

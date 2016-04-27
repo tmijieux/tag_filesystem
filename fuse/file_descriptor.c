@@ -1,7 +1,7 @@
 #include "./sys.h"
 #include "./file_descriptor.h"
 
-struct file_descriptor *fd_open(struct path *path, int flags, bool is_tag)
+struct file_descriptor *fd_open(struct path *path, int flags, const bool is_tag)
 {
     int fh = -1;
     if (!is_tag) {
@@ -11,7 +11,16 @@ struct file_descriptor *fd_open(struct path *path, int flags, bool is_tag)
             return ERR_PTR(-errno);
         }
     }
-
+    
+    struct tag *t = INVALID_TAG;
+    if (is_tag) {
+        if (strcmp(path->virtpath, "/") != 0) {
+            t = tag_get(path->filename);
+            if (t == INVALID_TAG)
+                return ERR_PTR(-ENOENT);
+        }
+    }
+    
     struct file_descriptor *fd = calloc(sizeof*fd, 1);
     if (!fd)
         return ERR_PTR(-ENOMEM);
@@ -20,7 +29,7 @@ struct file_descriptor *fd_open(struct path *path, int flags, bool is_tag)
         fd->is_tag_file = true;
 
     if (is_tag)
-        fd->tag = tag_get(path->filename);
+        fd->tag = t;
     else
         fd->file = file_get(path->filename);
 
