@@ -1,9 +1,12 @@
 #ifndef TAG_H
 #define TAG_H
 
+#include <stdint.h>
+
 struct tag {
     char *value;
     struct hash_table *files;
+    bool in_use;
 };
 
 #define INVALID_TAG ((struct tag*)0xdeadcafebeefbabe)
@@ -20,6 +23,8 @@ bool tag_exist(const char *value);
 void tag_add_file(struct tag *t, struct file *f);
 void tag_remove(struct tag *t);
 void compute_selected_tags(const char *user_path, struct hash_table **ret);
+void free_selected_tags(struct hash_table *selected_tags);
+
 struct list *tag_list(void);
 void tag_file(struct tag *t, struct file *f);
 void untag_file(struct tag *t, struct file *f);

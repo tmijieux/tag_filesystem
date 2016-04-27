@@ -48,7 +48,7 @@ void path_delete(struct path *path)
     free((char*) path->virtpath);
     free((char*) path->virtdirpath);
     free((char*) path->filename);
-    ht_free(path->selected_tags);
+    free_selected_tags(path->selected_tags);
     free(path);
 }
 

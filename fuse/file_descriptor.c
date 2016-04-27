@@ -11,16 +11,16 @@ struct file_descriptor *fd_open(struct path *path, int flags, const bool is_tag)
             return ERR_PTR(-errno);
         }
     }
-    
+
     struct tag *t = INVALID_TAG;
     if (is_tag) {
         if (strcmp(path->virtpath, "/") != 0) {
             t = tag_get(path->filename);
-            if (t == INVALID_TAG)
+            if (t == INVALID_TAG || !t->in_use)
                 return ERR_PTR(-ENOENT);
         }
     }
-    
+
     struct file_descriptor *fd = calloc(sizeof*fd, 1);
     if (!fd)
         return ERR_PTR(-ENOMEM);

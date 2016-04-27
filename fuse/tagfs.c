@@ -46,6 +46,7 @@ static int tag_open_file(const char *user_path, struct fuse_file_info *fi)
 
 static int tag_open_dir(const char *user_path, struct fuse_file_info *fi)
 {
+    print_log("opendir user_path = '%s'\n", user_path);
     return tag_open(user_path, fi, 1);
 }
 
@@ -66,7 +67,6 @@ static int getattr_intra(struct path *p, struct stat *stbuf)
            (or the root) directory and stat the main directory instead */
 
 	res = stat(realdirpath, stbuf);
-     
     } else {
         /* if the file exist check that it have the selected tags*/
         if (ht_entry_count(p->selected_tags) > 0) {
@@ -150,9 +150,12 @@ static int path_unlink(struct path *fd)
     if (NULL == f) {
         return -ENOENT;
     }
-    void remove_tag(const char *filename, void *tag, void *file)
+    void remove_tag(const char *filename, void *t_, void *file)
     {
+        struct tag *tag = t_;
         untag_file(tag, file);
+        if (ht_entry_count(tag->files) == 0)
+            tag_remove(tag);
     }
     ht_for_each(fd->selected_tags, &remove_tag, f);
     return 0;
@@ -196,7 +199,7 @@ static int tag_rmdir(const char *user_path)
 static int tag_mkdir(const char *user_path, mode_t mode)
 {
     int res = 0;
-    LOG(_("mkdir '%s'\n"), user_path);
+    print_log(_("mkdir '%s'\n"), user_path);
     int slash_count = get_character_count(user_path, '/');
     if (slash_count > 1)
         return  -EPERM;
@@ -204,12 +207,16 @@ static int tag_mkdir(const char *user_path, mode_t mode)
     char *filename = basenamedup(user_path);
     struct tag *t;
     t = tag_get(filename);
-    if (INVALID_TAG != t) {
+    if (INVALID_TAG != t && t->in_use) {
         res = -EEXIST;
+    } else if (INVALID_TAG != t){
+        t->in_use = true;
     } else {
         tag_get_or_create(filename);
     }
+
     free(filename);
+    print_log(_("mkdir returning '%s'\n"), strerror(-res));
     return res;
 }
 
@@ -247,7 +254,7 @@ static void readdir_list_tags_mode1(
 
     for (int i = 1; i <= s; ++i) {
         struct tag *t = list_get(tagl, i);
-        if (!ht_has_entry(selected_tags, t->value)) {
+        if (!ht_has_entry(selected_tags, t->value) && t->in_use) {
             filler(buf, t->value, NULL, 0);
         }
     }
@@ -503,7 +510,7 @@ static int tag_link(const char *from, const char *to)
     int res = 0;
     LOG(_("link file from:'%s' - to:'%s'\n"), from, to);
 
-  
+
     struct path *ffrom = path_create(from, 0);
     struct path *fto = path_create(to, 0);
     tag_mkdir(fto->virtdirpath, 0);
@@ -526,8 +533,8 @@ static int tag_rename(const char *from, const char *to)
         ht_entry_count(fto->selected_tags) != 1)
         res =  -EPERM;
     else {
-        path_unlink(ffrom);
         path_link(ffrom, fto);
+        path_unlink(ffrom);
     }
 
     path_delete(ffrom);
