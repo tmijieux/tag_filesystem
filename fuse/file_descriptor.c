@@ -19,14 +19,18 @@ struct file_descriptor *fd_open(struct path *path, int flags, bool is_tag)
     if (!strcmp(path->filename, TAG_FILENAME))
         fd->is_tag_file = true;
 
-    if (is_tag)
+    if (is_tag) {
         fd->tag = tag_get(path->filename);
-    else
+    } else {
         fd->file = file_get(path->filename);
+        file_add_descriptor(fd->file, fd);
+    }
 
     fd->is_tag = is_tag;
     fd->path = path;
     fd->fh = fh;
+    fd->ph = NULL;
+
     return fd;
 }
 
@@ -37,6 +41,12 @@ int fd_close(struct file_descriptor *fd)
         err = -errno;
 
     path_delete(fd->path);
+
+    if (fd->ph)
+        poll_h_free(fd->ph);
+
+    if (!fd->is_tag)
+        file_remove_descriptor(fd->file, fd);
     free(fd);
     return err;
 }

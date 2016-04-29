@@ -9,6 +9,7 @@
 #include "./tag.h"
 #include "./file.h"
 #include "./path.h"
+#include "./poll.h"
 
 static bool file_matches_tags(
     const char *filename, struct hash_table *selected_tags)
@@ -579,6 +580,18 @@ static int tag_ioctl(
         break;
     }
     return -EINVAL;
+}
+
+static int tag_poll(const char *user_path, struct fuse_file_info *fi,
+                    struct fuse_pollhandle *ph, unsigned *reventsp)
+{
+    struct file_descriptor *fd;
+    fd = (struct file_descriptor*) fi->fh;
+
+    poll_h_free(fd->ph);
+    fd->ph = poll_h_create(ph, reventsp);
+
+    return 0;
 }
 
 static struct fuse_operations tag_oper = {

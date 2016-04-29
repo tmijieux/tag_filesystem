@@ -11,6 +11,7 @@
 #include "../cutil/error.h"
 #include "../cutil/string2.h"
 #include "../cutil/hash_table.h"
+#include "../cutil/uthash.h"
 #include "../cutil/list.h"
 #include "../initializer.h"
 

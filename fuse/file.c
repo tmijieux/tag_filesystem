@@ -2,6 +2,7 @@
 #include "./util.h"
 #include "./path.h"
 #include "./file.h"
+#include "./file_descriptor.h"
 #include "./tag.h"
 
 static struct hash_table *files;
@@ -11,14 +12,40 @@ INITIALIZER(file_init)
     files = ht_create(0, NULL);
 }
 
+static void notify_descriptors_poll_tag(struct file *f)
+{
+    struct desc_table *entry, *tmp;
+    HASH_ITER(hh, f->descriptors, entry, tmp) {
+        struct poll_h *ph = entry->fd->ph;
+        *ph->reventsp = POLLIN;
+        fuse_notify_poll(ph->ph);
+        poll_h_free(ph);
+        entry->fd->ph = NULL;
+    }
+}
+
 void file_add_tag(struct file *f, struct tag *t)
 {
     ht_add_unique_entry(f->tags, t->value, t);
+    notify_descriptors_poll_tag(f);
+}
+
+static void notify_descriptors_poll_untag(struct file *f)
+{
+    struct desc_table *entry, *tmp;
+    HASH_ITER(hh, f->descriptors, entry, tmp) {
+        struct poll_h *ph = entry->fd->ph;
+        *ph->reventsp = POLLOUT;
+        fuse_notify_poll(ph->ph);
+        poll_h_free(ph);
+        entry->fd->ph = NULL;
+    }
 }
 
 void file_remove_tag(struct file *f, struct tag *t)
 {
     ht_remove_entry(f->tags, t->value);
+    notify_descriptors_poll_untag(f);
 }
 
 struct list *file_list(void)
@@ -32,6 +59,7 @@ static struct file *file_new(const char *name)
     t->name = strdup(name);
     t->realpath = path_realpath(name);
     t->tags = ht_create(0, NULL);
+    t->descriptors = NULL;
     return t;
 }
 
@@ -72,4 +100,21 @@ char *file_get_tags_string(const struct file *f, int *size)
     }
     ht_for_each(f->tags, each_tag, NULL);
     return str;
+}
+
+void file_add_descriptor(struct file *f, struct file_descriptor *fd)
+{
+    struct desc_table *dt = calloc(sizeof*dt, 1);
+    dt->fd = fd;
+    HASH_ADD_PTR(f->descriptors, fd, dt);
+}
+
+void file_remove_descriptor(struct file *f, struct file_descriptor *fd)
+{
+    struct desc_table *entry = NULL;
+    HASH_FIND_PTR(f->descriptors, fd, entry);
+    if (entry != NULL) {
+        HASH_DEL(f->descriptors, entry);
+        free(entry);
+    }
 }
