@@ -14,7 +14,7 @@ all: $(OBJ)
 -include $(DEP)
 
 clean: 
-	$(RM) $(OBJ)
+	$(RM) *.o *.d
 
 %.o: %.c
 	gcc -c $(CFLAGS) $*.c -o $*.o
