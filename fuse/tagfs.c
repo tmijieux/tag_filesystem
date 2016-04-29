@@ -624,6 +624,7 @@ static struct fuse_operations tag_oper = {
     .rename = tag_rename,
 
     .ioctl = tag_ioctl,
+    .poll = tag_poll,
 
     .flag_nullpath_ok = 1,
 };
