@@ -2,7 +2,7 @@
 #define _LINUX_ERR_H
 
 #include <asm/errno.h>
-
+#include <stdbool.h>
 
 
 /*

@@ -1,9 +1,11 @@
-#include "./sys.h"
-#include "./util.h"
-#include "./path.h"
-#include "./file.h"
-#include "./file_descriptor.h"
-#include "./tag.h"
+
+#include "fuse.h"
+#include "sys.h"
+#include "util.h"
+#include "path.h"
+#include "file.h"
+#include "file_descriptor.h"
+#include "tag.h"
 
 static struct hash_table *files;
 
@@ -12,40 +14,29 @@ INITIALIZER(file_init)
     files = ht_create(0, NULL);
 }
 
-static void notify_descriptors_poll_tag(struct file *f)
+static void notify_descriptors_poll(struct file *f, unsigned event)
 {
     struct desc_table *entry, *tmp;
     HASH_ITER(hh, f->descriptors, entry, tmp) {
-        struct poll_h *ph = entry->fd->ph;
-        *ph->reventsp = POLLIN;
-        fuse_notify_poll(ph->ph);
-        poll_h_free(ph);
-        entry->fd->ph = NULL;
+        struct fuse_pollhandle *ph = entry->fd->ph;
+        if (ph != NULL) {
+            f->revents |= event;
+            fuse_notify_poll(ph);
+        }
+        print_debug("notifying tag/untag file %s\n", f->name);
     }
 }
 
 void file_add_tag(struct file *f, struct tag *t)
 {
     ht_add_unique_entry(f->tags, t->value, t);
-    notify_descriptors_poll_tag(f);
-}
-
-static void notify_descriptors_poll_untag(struct file *f)
-{
-    struct desc_table *entry, *tmp;
-    HASH_ITER(hh, f->descriptors, entry, tmp) {
-        struct poll_h *ph = entry->fd->ph;
-        *ph->reventsp = POLLOUT;
-        fuse_notify_poll(ph->ph);
-        poll_h_free(ph);
-        entry->fd->ph = NULL;
-    }
+    notify_descriptors_poll(f, POLLIN);
 }
 
 void file_remove_tag(struct file *f, struct tag *t)
 {
     ht_remove_entry(f->tags, t->value);
-    notify_descriptors_poll_untag(f);
+    notify_descriptors_poll(f, POLLOUT);
 }
 
 struct list *file_list(void)
@@ -60,6 +51,7 @@ static struct file *file_new(const char *name)
     t->realpath = path_realpath(name);
     t->tags = ht_create(0, NULL);
     t->descriptors = NULL;
+    t->revents = 0;
     return t;
 }
 

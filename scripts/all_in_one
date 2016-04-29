@@ -3,6 +3,6 @@
 file=$(mktemp /tmp/tempXXXXXX.c)
 cc=gcc
 
-cat cutil/*.c *.c > $file
-$cc $file -D_FILE_OFFSET_BITS=64 -I. -I cutil -I../include -D_GNU_SOURCE -Wall -lfuse -o tagfs -O3 -std=gnu99
+cat ../cutil/*.c *.c > $file
+$cc $file -D_FILE_OFFSET_BITS=64 -I. -I ../cutil -I../include -D_GNU_SOURCE -Wall -o tagfs -O3 -std=gnu99 -iquote. -pthread -lfuse
 rm $file

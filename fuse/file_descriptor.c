@@ -1,3 +1,4 @@
+#include "./fuse.h"
 #include "./sys.h"
 #include "./file_descriptor.h"
 
@@ -43,10 +44,11 @@ int fd_close(struct file_descriptor *fd)
     path_delete(fd->path);
 
     if (fd->ph)
-        poll_h_free(fd->ph);
+        fuse_pollhandle_destroy(fd->ph);
 
     if (!fd->is_tag)
         file_remove_descriptor(fd->file, fd);
+
     free(fd);
     return err;
 }

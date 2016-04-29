@@ -9,6 +9,9 @@ struct tag {
 #define INVALID_TAG ((struct tag*)0xdeadcafebeefbabe)
 #define TAG_FILENAME ".tags"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <stdbool.h>
 #include "file.h"
 #include "../cutil/hash_table.h"

@@ -6,7 +6,6 @@
 struct file_descriptor;
 
 #include "./path.h"
-#include "./poll.h"
 
 #define IS_ERR(ptr) (((uint64_t)ptr & 0xdeadbeef00000000UL) == 0xdeadbeef00000000UL)
 #define PTR_ERR(ptr) (-(int) ((uint64_t) ptr &  ~0xdeadbeef00000000UL))
@@ -17,8 +16,7 @@ struct file_descriptor {
     bool is_tag;
     bool is_tag_file;
 
-    struct poll_h *ph;
-
+    struct fuse_pollhandle *ph;
     union {
         struct file *file;
         struct tag *tag;

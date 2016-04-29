@@ -2,9 +2,8 @@ TARGET=tagfs
 SRC=$(wildcard *.c) $(wildcard ../cutil/*.c)
 
 CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
-CFLAGS+=-Wno-unused-label -Wno-unused-function -iquote.
-CFLAGS+=$(shell pkg-config --cflags fuse)
-CFLAGS+=-I ../include
+CFLAGS+=$(shell pkg-config --cflags fuse3)
+CFLAGS+=-I ../include -iquote.
 
 ifdef DEBUG
 	CFLAGS+=-ggdb -O0 -DDEBUG
@@ -12,7 +11,7 @@ else
 	CFLAGS+=-g -O2 -march=native
 endif
 
-LDFLAGS=$(shell pkg-config --libs fuse)
+LDFLAGS=$(shell pkg-config --libs fuse3)
 
 OBJ=$(SRC:.c=.o) 
 DEP=$(SRC:.c=.d) 
@@ -25,8 +24,8 @@ $(TARGET): $(OBJ)
 	$(CC) $^ -o $@ $(LDFLAGS)
 
 %.o: %.c
+	@$(CC) -MM $(CFLAGS) $*.c > $*.d
 	$(CC) -c $(CFLAGS) $*.c -o $*.o
-	$(CC) -MM $(CFLAGS) $*.c > $*.d
 
 mnt: 
 	mkdir -p mnt/

@@ -11,5 +11,6 @@
 #include <limits.h>
 #include <locale.h>
 #include <ctype.h>
+#include <poll.h>
 
 #endif //SYS_H

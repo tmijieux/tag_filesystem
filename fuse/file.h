@@ -17,6 +17,7 @@ struct file {
     char *realpath;
     struct hash_table *tags;
     struct desc_table *descriptors;
+    unsigned revents;
 };
 
 #include <stdio.h>

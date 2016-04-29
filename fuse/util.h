@@ -17,7 +17,6 @@
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-
 int get_character_count(const char *str, char c);
 char *basenamedup(const char *dir);
 char *dirnamedup(const char *dir);

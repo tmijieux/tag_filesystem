@@ -1,9 +1,7 @@
-#define FUSE_USE_VERSION 26
-#include <fuse.h>
-
 #include "tagioc.h"
 
 #include "./file_descriptor.h"
+#include "./fuse.h"
 #include "./sys.h"
 #include "./util.h"
 #include "./tag.h"
@@ -12,9 +10,8 @@
 #include "./poll.h"
 
 static bool file_matches_tags(
-    const char *filename, struct hash_table *selected_tags)
+    struct file *f, struct hash_table *selected_tags)
 {
-    struct file *f = file_get_or_create(filename);
     bool match = true;
     /* viva el gcc: */
     void check_tags(const char *name, void *tag, void *match_) {
@@ -73,9 +70,10 @@ static int getattr_intra(struct path *p, struct stat *stbuf)
             res = -ENOENT;
         }
     } else {
+        struct file *f = file_get_or_create(p->filename);
         /* if the file exist check that it have the selected tags*/
         if (ht_entry_count(p->selected_tags) > 0) {
-            if (!file_matches_tags(p->filename, p->selected_tags)) {
+            if (!file_matches_tags(f, p->selected_tags)) {
                 res = -ENOENT;
             }
         } else if (!strcmp(p->filename, TAG_FILENAME)) {
@@ -238,7 +236,7 @@ static void readdir_list_files(
         path_free(&p);
         if (res < 0)
             continue;
-        filler(buf, dirent->d_name, NULL, 0);
+        filler(buf, dirent->d_name, NULL, 0, 0);
     }
 }
 
@@ -253,7 +251,7 @@ static void readdir_list_tags_mode1(
     for (int i = 1; i <= s; ++i) {
         struct tag *t = list_get(tagl, i);
         if (!ht_has_entry(selected_tags, t->value)) {
-            filler(buf, t->value, NULL, 0);
+            filler(buf, t->value, NULL, 0, 0);
         }
     }
 }
@@ -309,7 +307,7 @@ static void readdir_fill_remaining_tags(
             if (!ht_has_entry(selected_tags, t->value) &&
                 !ht_has_entry(remaining_tags, t->value))
             {
-                filler(buf, t->value, NULL, 0);
+                filler(buf, t->value, NULL, 0, 0);
                 ht_add_unique_entry(remaining_tags, t->value, t);
             }
         }
@@ -342,14 +340,14 @@ static void readdir_list_tags_mode2(
 /* list files within directory */
 static int tag_readdir(
     const char *user_path, void *buf, fuse_fill_dir_t filler,
-    off_t offset, struct fuse_file_info *fi)
+    off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
 {
     struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
     struct path *path = fd->path;
 
     LOG(_("\n\nreaddir '%s'\n"), path->virtpath);
-    filler(buf, ".", NULL, 0);
-    filler(buf, "..", NULL, 0);
+    filler(buf, ".", NULL, 0, 0);
+    filler(buf, "..", NULL, 0, 0);
 
     if (ht_entry_count(path->selected_tags) > 0)
         readdir_list_tags_mode2(buf, path->selected_tags, filler);
@@ -476,11 +474,11 @@ static int tag_chown(const char *user_path, uid_t user, gid_t group)
     return res;
 }
 
-static int tag_utime(const char *user_path, struct utimbuf *times)
+static int tag_utimens(const char *user_path, const struct timespec tv[2])
 {
     int res;
     char *realpath = path_realpath(user_path);
-    res = utime(realpath, times);
+    res = utimensat(AT_FDCWD, realpath, tv, 0);
     free(realpath);
     return res;
 }
@@ -520,9 +518,13 @@ static int tag_link(const char *from, const char *to)
     return res;
 }
 
-static int tag_rename(const char *from, const char *to)
+static int tag_rename(const char *from, const char *to, unsigned flags)
 {
     int res = 0;
+    print_debug("rename from = %s; to = %s; flags = 0x%x\n", from, to, flags);
+    if (flags != 0)
+        return -ENOSYS;
+
     struct path *ffrom = path_create(from, 0);
     struct path *fto = path_create(to, 0);
 
@@ -588,8 +590,14 @@ static int tag_poll(const char *user_path, struct fuse_file_info *fi,
     struct file_descriptor *fd;
     fd = (struct file_descriptor*) fi->fh;
 
-    poll_h_free(fd->ph);
-    fd->ph = poll_h_create(ph, reventsp);
+    print_debug("poll file = %s; ph = %p; reventsp = %u\n",
+                fd->file->name, ph, *reventsp);
+
+    if (fd->ph != NULL)
+        fuse_pollhandle_destroy(fd->ph);
+    fd->ph = ph;
+    *reventsp = fd->file->revents;
+    fd->file->revents = 0;
 
     return 0;
 }
@@ -620,13 +628,13 @@ static struct fuse_operations tag_oper = {
     .truncate = tag_truncate,
     .chmod = tag_chmod,
     .chown = tag_chown,
-    .utime = tag_utime,
+    .utimens = tag_utimens,
     .rename = tag_rename,
 
     .ioctl = tag_ioctl,
     .poll = tag_poll,
 
-    .flag_nullpath_ok = 1,
+    .flag_nopath = 1,
 };
 
 static void set_root_directory(const char *path)
@@ -669,17 +677,14 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-
     /* find the absolute directory because fuse_main()
      * doesn't launch the daemon in the same current directory.
      */
     setlocale(LC_ALL, "");
     set_root_directory(argv[1]);
 
-    argv++; argc--;
-
     LOG(_("starting %s in %s\n"), argv[0], realdirpath);
-    err = fuse_main(argc, argv, &tag_oper, NULL);
+    err = fuse_main(argc-1, argv+1, &tag_oper, NULL);
     LOG(_("stopped %s with return code %d\n"), argv[0], err);
 
     save_tag_db();
