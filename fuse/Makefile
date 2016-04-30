@@ -1,9 +1,12 @@
 TARGET=tagfs
 SRC=$(wildcard *.c) $(wildcard ../cutil/*.c)
 
+FUSE=fuse
+FUSE_VER=26
+
 CFLAGS=-Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
-CFLAGS+=$(shell pkg-config --cflags fuse3)
-CFLAGS+=-I ../include -iquote.
+CFLAGS+=$(shell pkg-config --cflags $(FUSE))
+CFLAGS+=-I ../include -iquote. -DFUSE_VER=$(FUSE_VER) -D_TAG_FUSE=$(FUSE)
 
 ifdef DEBUG
 	CFLAGS+=-ggdb -O0 -DDEBUG
@@ -11,7 +14,7 @@ else
 	CFLAGS+=-g -O2 -march=native
 endif
 
-LDFLAGS=$(shell pkg-config --libs fuse3)
+LDFLAGS=$(shell pkg-config --libs $(FUSE))
 
 OBJ=$(SRC:.c=.o) 
 DEP=$(SRC:.c=.d) 

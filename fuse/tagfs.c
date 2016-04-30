@@ -9,6 +9,12 @@
 #include "./path.h"
 #include "./poll.h"
 
+
+#if FUSE_USE_VERSION != 30
+#    define filler(a, b, c, d, e)   filler(a, b, c, d)
+#endif
+
+
 static bool file_matches_tags(
     struct file *f, struct hash_table *selected_tags)
 {
@@ -338,9 +344,15 @@ static void readdir_list_tags_mode2(
 }
 
 /* list files within directory */
+#if FUSE_USE_VERSION == 30
 static int tag_readdir(
     const char *user_path, void *buf, fuse_fill_dir_t filler,
     off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags)
+#else
+static int tag_readdir(
+    const char *user_path, void *buf, fuse_fill_dir_t filler,
+    off_t offset, struct fuse_file_info *fi)
+#endif
 {
     struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
     struct path *path = fd->path;
@@ -474,6 +486,7 @@ static int tag_chown(const char *user_path, uid_t user, gid_t group)
     return res;
 }
 
+#if FUSE_USE_VERSION == 30
 static int tag_utimens(const char *user_path, const struct timespec tv[2])
 {
     int res;
@@ -482,6 +495,16 @@ static int tag_utimens(const char *user_path, const struct timespec tv[2])
     free(realpath);
     return res;
 }
+#else
+static int tag_utime(const char *user_path, struct utimbuf *tb)
+{
+    int res;
+    char *realpath = path_realpath(user_path);
+    res = utime(realpath, tb);
+    free(realpath);
+    return res;
+}
+#endif
 
 static int path_link(struct path *ffrom, struct path *fto)
 {
@@ -518,12 +541,21 @@ static int tag_link(const char *from, const char *to)
     return res;
 }
 
+#if FUSE_USE_VERSION == 30
 static int tag_rename(const char *from, const char *to, unsigned flags)
+#else
+static int tag_rename(const char *from, const char *to)
+#endif
 {
     int res = 0;
+
+#if FUSE_USE_VERSION == 30
     print_debug("rename from = %s; to = %s; flags = 0x%x\n", from, to, flags);
     if (flags != 0)
         return -ENOSYS;
+#else
+    print_debug("rename from = %s; to = %s\n", from, to);
+#endif
 
     struct path *ffrom = path_create(from, 0);
     struct path *fto = path_create(to, 0);
@@ -628,7 +660,11 @@ static struct fuse_operations tag_oper = {
     .truncate = tag_truncate,
     .chmod = tag_chmod,
     .chown = tag_chown,
+#if FUSE_USE_VERSION == 30
     .utimens = tag_utimens,
+#else
+    .utime = tag_utime,
+#endif
     .rename = tag_rename,
 
     .ioctl = tag_ioctl,
