@@ -13,3 +13,6 @@ PROGS=$(SRC:.c=)
 
 all: $(PROGS)
 
+
+clean:
+	$(RM) -rf *.o *.d

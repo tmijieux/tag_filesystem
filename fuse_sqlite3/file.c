@@ -2,6 +2,7 @@
 #include "./util.h"
 #include "./path.h"
 #include "./file.h"
+#include "./db.h"
 #include "./tag.h"
 
 static struct hash_table *files;
@@ -28,6 +29,7 @@ static struct file *file_new(const char *name)
     t->name = strdup(name);
     t->realpath = path_realpath(name);
     t->id = next_file_id();
+    db_add_file(t->name, t->id);
     return t;
 }
 

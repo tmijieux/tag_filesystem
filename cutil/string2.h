@@ -12,5 +12,6 @@ int character_is_in_string(int c, const char *str);
 void strstripc(char *str, char c);
 char *strstrip(const char *str);
 char *aasprintf(const char *fmt, ...);
+#define xasprintf(x ...) aasprintf(x)
 
 #endif //STRING2_H

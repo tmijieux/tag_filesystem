@@ -1,12 +1,14 @@
+
+
 create table tag
 (
-	t_id		integer primary key autoincrement,
+	t_id		integer primary key,
 	t_name		text unique not null on conflict ignore
 );
 
 create table file
 (
-	f_id		integer primary key autoincrement,
+	f_id		integer primary key,
 	f_name		text unique not null on conflict ignore
 );
 

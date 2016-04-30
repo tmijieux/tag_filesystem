@@ -2,7 +2,6 @@
 #include "./util.h"
 #include "./tag.h"
 #include "./file.h"
-#include "./log.h"
 #include "./db.h"
 
 #include "../cutil/hash_table.h"
@@ -28,8 +27,8 @@ static struct tag *tag_new(const char *value)
 {
     struct tag *t = calloc(sizeof*t, 1);
     t->value = strdup(value);
-    db_add_tag(t->value);
     t->id = next_tag_id();
+    db_add_tag(t->value, t->id);
     return t;
 }
 
@@ -80,12 +79,12 @@ void compute_selected_tags(
     int tag_count = string_split(dirpath, "/", &tags);
 
     for (i = 0; i < tag_count; ++i) {
-        DBG("selected tag: %s\n", tags[i]);
+        print_debug("selected tag: %s\n", tags[i]);
         ht_add_entry(selected_tags, tags[i], tag_get(tags[i]));
         free(tags[i]);
     }
     free(tags);
-    DBG("selected tag: %d\n", i);
+    print_debug("selected tag: %d\n", i);
 }
 
 struct list *tag_list(void)
@@ -100,6 +99,7 @@ void tag_file(struct tag *t, struct file *f)
 
 void untag_file(struct tag *t, struct file *f)
 {
+    db_untag_file(t->id, f->id);
 }
 
 void tag_db_dump(FILE *output)

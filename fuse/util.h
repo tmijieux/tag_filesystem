@@ -13,7 +13,7 @@
 #include "../cutil/hash_table.h"
 #include "../cutil/uthash.h"
 #include "../cutil/list.h"
-#include "../initializer.h"
+#include "initializer.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 

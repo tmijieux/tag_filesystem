@@ -30,7 +30,7 @@ mnt:
 	mkdir -p mnt/
 
 clean: 
-	$(RM) $(OBJ) $(DEP) *.log *.o *.d
+	$(RM) *.log *.o *.d
 
 start: mnt tagfs
 	./tagfs images mnt -f -d -s

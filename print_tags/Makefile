@@ -28,4 +28,4 @@ $(TARGET): $(OBJ)
 	gcc -MM $(CFLAGS) $*.c > $*.d
 
 clean: 
-	$(RM) $(OBJ) $(DEP) *.log *.o
+	$(RM) *.log *.o *.d
