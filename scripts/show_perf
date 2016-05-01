@@ -1,0 +1,44 @@
+#!/usr/bin/env python2
+
+import sys
+import matplotlib.pyplot as plt
+import numpy as np
+
+def read_array(n):
+    a = np.zeros(n, dtype=np.float)
+    for i in range(0, n):
+        a[i] = float(raw_input().split()[0])
+    return a
+
+
+def parse():
+    n = 17
+
+    i = [ 2**i for i in range(0, n) ]
+    raw_input() # useless line "will use **file**"
+
+    c = read_array(n)
+    t = read_array(n)
+
+    l = []
+    raw_input() # listing "not implemented"
+    #l = read_array(n)
+
+    r = read_array(n)
+    d = read_array(n)
+
+    return i, c, t, l, r, d
+
+def plot_array(i, a):
+    if len(i) == len(a):
+        plt.plot(i, a, 'bo')
+        plt.show()
+
+if __name__ == "__main__":
+    i, c, t, l, r, d = parse()
+    plot_array(i, c)
+    plot_array(i, t)
+    plot_array(i, l)
+    plot_array(i, r)
+    plot_array(i, d)
+
