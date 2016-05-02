@@ -54,6 +54,6 @@ stop:
 kill:
 	kill -9 $(shell pidof tagfs) || true
 
-all_in_one:
-	../scripts/all_in_one
+all_in_one: schema.c
+	CFLAGS=$(shell pkg-config --cflags sqlite3) LDFLAGS=$(shell pkg-config --libs sqlite3) ../scripts/all_in_one 
 
