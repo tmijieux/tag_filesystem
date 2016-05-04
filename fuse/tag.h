@@ -2,11 +2,16 @@
 #define TAG_H
 
 #include <stdint.h>
+#include <regex.h>
 
 struct tag {
+    regex_t regexp;
+    int reg_err;
+    bool is_regexp;
+    int ref_count;
+    
     char *value;
     struct hash_table *files;
-    bool in_use;
 };
 
 #define INVALID_TAG ((struct tag*)0xdeadcafebeefbabe)
@@ -27,6 +32,7 @@ void tag_add_file(struct tag *t, struct file *f);
 void tag_remove(struct tag *t);
 void compute_selected_tags(const char *user_path, struct hash_table **ret);
 void free_selected_tags(struct hash_table *selected_tags);
+bool tag_match_tag(struct tag *t_reg, struct tag *t);
 
 struct list *tag_list(void);
 void tag_file(struct tag *t, struct file *f);
@@ -35,5 +41,6 @@ void parse_tags_db(const char *filename,
                    int (*getattr)(const char *, struct stat*));
 void tag_db_dump(FILE *output);
 void update_lib(char *tagFile);
+
 
 #endif //TAG_H

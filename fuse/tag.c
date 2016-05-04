@@ -17,30 +17,62 @@ INITIALIZER(tag_init)
     tags = ht_create(0, NULL);
 }
 
-static struct tag *tag_new(const char *value, bool in_use)
+static void tag_dec_ref(struct tag *t)
+{
+    -- t->ref_count;
+    if (t->ref_count == 0) {
+        ht_remove_entry(tags, t->value);
+        if (t->is_regexp && t->reg_err == 0)
+            regfree(&t->regexp);
+        free(t);
+    }
+}
+
+static void tag_inc_ref(struct tag *t)
+{
+    ++ t->ref_count;
+}
+
+bool tag_match_tag(struct tag *t_reg, struct tag *t)
+{
+    if (t_reg->is_regexp) {
+        if (regexec(&t_reg->regexp, t->value, 0, NULL, 0) == 0) {
+            return true;
+        }
+        return false;
+    }
+    return strcmp(t_reg->value, t->value) == 0;
+}
+
+static struct tag *tag_new(const char *value, bool is_regexp)
 {
     struct tag *t = calloc(sizeof*t, 1);
     t->value = strdup(value);
     t->files = ht_create(0, NULL);
-    t->in_use = in_use;
+    t->is_regexp = is_regexp;
+    if (is_regexp)
+        t->reg_err = regcomp(&t->regexp, value, REG_EXTENDED | REG_NEWLINE);
+    
     return t;
 }
 
-static struct tag* tag_get_or_create__(const char *value, bool in_use)
+static struct tag* tag_get_or_create__(const char *value, bool is_regexp)
 {
     struct tag *t;
     if (ht_get_entry(tags, value, &t) >= 0) {
         return t;
     }
-    t = tag_new(value, in_use);
-
+    t = tag_new(value, is_regexp);
     ht_add_entry(tags, value, t);
     return t;
 }
 
 struct tag* tag_get_or_create(const char *value)
 {
-    return tag_get_or_create__(value, true);
+    struct tag *t;
+    t = tag_get_or_create__(value, false);
+    tag_inc_ref(t);
+    return t;
 }
 
 struct tag* tag_get(const char *value)
@@ -73,9 +105,9 @@ void tag_remove(struct tag *t)
     {
         file_remove_tag(f, t);
     }
+    print_debug("ALERTE AU FREE DU TAG '%s'\n", t->value);
     ht_for_each(t->files, &remove_tag, t);
-    ht_remove_entry(tags, t->value);
-    free(t);
+    tag_dec_ref(t);
 }
 
 void compute_selected_tags(
@@ -87,17 +119,19 @@ void compute_selected_tags(
     *ret = selected_tags = ht_create(0, NULL);
 
     if (!strcmp(dirpath, "."))
-        return ;
+        return;
 
     char **tags ;
     int tag_count = string_split(dirpath, "/", &tags);
 
     for (i = 0; i < tag_count; ++i) {
         DBG("selected tag: %s\n", tags[i]);
-        ht_add_entry(
-            selected_tags, tags[i],
-            tag_get_or_create__(tags[i], false)
-        );
+        struct tag *t = tag_get(tags[i]);
+        if (t == INVALID_TAG) {
+            t = tag_get_or_create__(tags[i], true);
+        }
+        tag_inc_ref(t);
+        ht_add_entry(selected_tags, tags[i], t);
         free(tags[i]);
     }
     free(tags);
@@ -109,7 +143,7 @@ void free_selected_tags(struct hash_table *selected_tags)
     void free_tag(const char *n, void *t_, void *ctx)
     {
         struct tag *t = t_;
-        if (!t->in_use)
+        if (t->is_regexp)
             tag_remove(t);
     }
     ht_for_each(selected_tags, &free_tag, NULL);

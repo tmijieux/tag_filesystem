@@ -9,25 +9,28 @@
 #include "./path.h"
 #include "./poll.h"
 
-
 #if FUSE_USE_VERSION != 30
 #    define filler(a, b, c, d, e)   filler(a, b, c, d)
 #endif
-
 
 static bool file_matches_tags(
     struct file *f, struct hash_table *selected_tags)
 {
     bool match = true;
-    /* viva el gcc: */
-    void check_tags(const char *name, void *tag, void *match_) {
-        bool *match = match_;
-        struct tag *t = tag;
-        if (t == INVALID_TAG || !ht_has_entry(f->tags, t->value))
-            *match = false;
+    /* viva gcc: */
+    void check_tags(const char *n, void *t_s, void *ctx)
+    {
+        bool have_tag = false;
+        void tags_matching(const char *n, void *t_f, void *ctx)
+        {
+            if (tag_match_tag(t_s, t_f))
+                have_tag = true;
+        }
+        ht_for_each(f->tags, tags_matching, NULL);
+        if (!have_tag)
+            match = false;
     }
-    print_debug(_("selected tags size: %d\n"), ht_entry_count(selected_tags));
-    ht_for_each(selected_tags, &check_tags, &match);
+    ht_for_each(selected_tags, &check_tags, NULL);
     return match;
 }
 
@@ -184,21 +187,7 @@ static int tag_unlink(const char *user_path)
 
 static int tag_rmdir(const char *user_path)
 {
-    int res = 0;
-    int slash_count = get_character_count(user_path, '/');
-    LOG(_("rmdir '%s'\n"), user_path);
-    if (slash_count > 1)
-        return -EPERM;
-
-    char *tag = basenamedup(user_path);
-    struct tag *t = tag_get(tag);
-    if (NULL == t) {
-        res = -ENOENT;
-    } else {
-        tag_remove(t);
-    }
-    free(tag);
-    return res;
+    return 0;
 }
 
 static int tag_mkdir(const char *user_path, mode_t mode)
@@ -212,10 +201,11 @@ static int tag_mkdir(const char *user_path, mode_t mode)
     char *filename = basenamedup(user_path);
     struct tag *t;
     t = tag_get(filename);
-    if (INVALID_TAG != t && t->in_use) {
+    if (INVALID_TAG != t && !t->is_regexp) {
         res = -EEXIST;
-    } else if (INVALID_TAG != t){
-        t->in_use = true;
+    } else if (INVALID_TAG != t) { // and t->is_regexp == true
+        regfree(&t->regexp);
+        t->is_regexp = false;
     } else {
         tag_get_or_create(filename);
     }
@@ -259,7 +249,7 @@ static void readdir_list_tags_mode1(
 
     for (int i = 1; i <= s; ++i) {
         struct tag *t = list_get(tagl, i);
-        if (!ht_has_entry(selected_tags, t->value) && t->in_use) {
+        if (!ht_has_entry(selected_tags, t->value) && !t->is_regexp) {
             filler(buf, t->value, NULL, 0, 0);
         }
     }

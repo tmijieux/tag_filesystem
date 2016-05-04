@@ -8,19 +8,18 @@ struct file_descriptor *fd_open(struct path *path, int flags, const bool is_tag)
     if (!is_tag) {
         fh = open(path->realpath, flags);
         if (fh < 0) {
-            print_debug("lulz %s\n", strerror(errno));
             return ERR_PTR(-errno);
         }
     }
 
-    struct tag *t = INVALID_TAG;
-    if (is_tag) {
-        if (strcmp(path->virtpath, "/") != 0) {
-            t = tag_get(path->filename);
-            if (t == INVALID_TAG || !t->in_use)
-                return ERR_PTR(-ENOENT);
-        }
-    }
+    /* struct tag *t = INVALID_TAG; */
+    /* if (is_tag) { */
+    /*     if (strcmp(path->virtpath, "/") != 0) { */
+    /*         t = tag_get(path->filename); */
+    /*         if (t == INVALID_TAG || !t->in_use) */
+    /*             return ERR_PTR(-ENOENT); */
+    /*     } */
+    /* } */
 
     struct file_descriptor *fd = calloc(sizeof*fd, 1);
     if (!fd)
@@ -29,9 +28,7 @@ struct file_descriptor *fd_open(struct path *path, int flags, const bool is_tag)
     if (!strcmp(path->filename, TAG_FILENAME))
         fd->is_tag_file = true;
 
-    if (is_tag) {
-        fd->tag = t;
-    } else {
+    if (!is_tag) {
         fd->file = file_get(path->filename);
         file_add_descriptor(fd->file, fd);
     }
@@ -47,7 +44,7 @@ struct file_descriptor *fd_open(struct path *path, int flags, const bool is_tag)
 int fd_close(struct file_descriptor *fd)
 {
     int err = 0;
-    if (close(fd->fh) < 0)
+    if (!fd->is_tag && close(fd->fh) < 0)
         err = -errno;
 
     path_delete(fd->path);
