@@ -17,24 +17,30 @@ INITIALIZER(tag_init)
     tags = ht_create(0, NULL);
 }
 
-static struct tag *tag_new(const char *value)
+static struct tag *tag_new(const char *value, bool in_use)
 {
     struct tag *t = calloc(sizeof*t, 1);
     t->value = strdup(value);
     t->files = ht_create(0, NULL);
+    t->in_use = in_use;
     return t;
 }
 
-struct tag* tag_get_or_create(const char *value)
+static struct tag* tag_get_or_create__(const char *value, bool in_use)
 {
     struct tag *t;
     if (ht_get_entry(tags, value, &t) >= 0) {
         return t;
     }
-    t = tag_new(value);
+    t = tag_new(value, in_use);
 
     ht_add_entry(tags, value, t);
     return t;
+}
+
+struct tag* tag_get_or_create(const char *value)
+{
+    return tag_get_or_create__(value, true);
 }
 
 struct tag* tag_get(const char *value)
@@ -88,11 +94,26 @@ void compute_selected_tags(
 
     for (i = 0; i < tag_count; ++i) {
         DBG("selected tag: %s\n", tags[i]);
-        ht_add_entry(selected_tags, tags[i], tag_get(tags[i]));
+        ht_add_entry(
+            selected_tags, tags[i],
+            tag_get_or_create__(tags[i], false)
+        );
         free(tags[i]);
     }
     free(tags);
     DBG("selected tag: %d\n", i);
+}
+
+void free_selected_tags(struct hash_table *selected_tags)
+{
+    void free_tag(const char *n, void *t_, void *ctx)
+    {
+        struct tag *t = t_;
+        if (!t->in_use)
+            tag_remove(t);
+    }
+    ht_for_each(selected_tags, &free_tag, NULL);
+    ht_free(selected_tags);
 }
 
 struct list *tag_list(void)
