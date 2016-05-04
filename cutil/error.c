@@ -12,7 +12,6 @@
 // be sure to do this include first:
 #include "error.h"
 
-
 static void print_any(
     char *string,
     const char *filename, int line,
