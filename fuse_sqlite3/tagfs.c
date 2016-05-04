@@ -52,9 +52,7 @@ static int getattr_intra(struct path *p, struct stat *stbuf)
     /* try to stat the actual file */
     if ((res = stat(p->realpath, stbuf)) < 0 || S_ISDIR(stbuf->st_mode)) {
         if (res < 0) {
-            int save_errno = errno;
-            char *tmp =  _("error ::%s :: %s\n");
-            print_log(tmp, p->realpath, strerror(save_errno));
+            print_log(_("error ::%s :: %s\n"), p->realpath, strerror(errno));
         }
         /* if the file doesn't exist, check if it's a tag
            (or the root) directory and stat the main directory instead */

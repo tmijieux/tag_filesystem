@@ -66,7 +66,7 @@ static int getattr_intra(struct path *p, struct stat *stbuf)
 
     /* try to stat the actual file */
     if ((res = stat(p->realpath, stbuf)) < 0 || S_ISDIR(stbuf->st_mode)) {
-        LOG(_("error ::%s :: %s\n"), p->realpath, strerror(errno));
+        print_log(_("error ::%s :: %s\n"), p->realpath, strerror(errno));
         /* if the file doesn't exist, check if it's a tag
            (or the root) directory and stat the main directory instead */
 
@@ -90,10 +90,10 @@ static int getattr_intra(struct path *p, struct stat *stbuf)
 static int tag_getattr(const char *user_path, struct stat *stbuf)
 {
     int res;
-    LOG(_("getattr '%s'\n"), user_path);
+    print_log(_("getattr '%s'\n"), user_path);
     struct path *path = path_create(user_path, 0);
     res = getattr_intra(path, stbuf);
-    LOG(_("getattr returning '%s'\n"), strerror(-res));
+    print_log(_("getattr returning '%s'\n"), strerror(-res));
     path_delete(path);
     return res;
 }
@@ -171,7 +171,7 @@ static int tag_unlink(const char *user_path)
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
 
-    LOG("unlink '%s'\n", user_path);
+    print_log("unlink '%s'\n", user_path);
     if (slash_count <= 1)
         return -EPERM;
 
@@ -186,19 +186,24 @@ static int tag_rmdir(const char *user_path)
 {
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
-    LOG(_("rmdir '%s'\n"), user_path);
+    print_log(_("rmdir '%s'\n"), user_path);
     if (slash_count > 1)
         return -EPERM;
 
     char *tag = basenamedup(user_path);
     struct tag *t = tag_get(tag);
-    if (NULL == t) {
+    if (INVALID_TAG == t) {
         res = -ENOENT;
     } else {
         tag_remove(t);
     }
     free(tag);
     return res;
+}
+
+static int tag_noop_mkdir(const char *user_path, mode_t mode)
+{
+    return 0;
 }
 
 static int tag_mkdir(const char *user_path, mode_t mode)
@@ -369,7 +374,7 @@ static int tag_readdir(
     struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
     struct path *path = fd->path;
 
-    LOG(_("readdir '%s'\n"), path->virtpath);
+    print_log(_("readdir '%s'\n"), path->virtpath);
     filler(buf, ".", NULL, 0, 0);
     filler(buf, "..", NULL, 0, 0);
 
@@ -380,7 +385,7 @@ static int tag_readdir(
     readdir_list_files(buf, path, filler);
 
     int res = 0;
-    LOG(_("readdir returning %s\n\n\n"), strerror(-res));
+    print_log(_("readdir returning %s\n\n\n"), strerror(-res));
     return res;
 }
 
@@ -407,9 +412,9 @@ static int read_tag_file(char *buffer, size_t len, off_t off)
 out:
     fclose(tagfile);
     if (res < 0)
-        LOG(_("read_tag returning '%s'\n"), strerror(-res));
+        print_log(_("read_tag returning '%s'\n"), strerror(-res));
     else
-        LOG(_("read_tag returning success (read %d)\n"), res);
+        print_log(_("read_tag returning success (read %d)\n"), res);
     return res;
 }
 
@@ -424,12 +429,12 @@ static int tag_read(
     if (fd->is_tag_file)
         return read_tag_file(buffer, len, off);
 
-    LOG(_("read '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
+    print_log(_("read '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
     res = fd_read(fd, buffer, len, off);
     if (res < 0)
-        LOG(_("read returning '%s'\n"), strerror(-res));
+        print_log(_("read returning '%s'\n"), strerror(-res));
     else
-        LOG(_("read returning success (read %d)\n"), res);
+        print_log(_("read returning success (read %d)\n"), res);
     return res;
 }
 
@@ -443,12 +448,12 @@ static int tag_write(
     if (fd->is_tag_file)
         return -EPERM;
 
-    LOG(_("write '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
+    print_log(_("write '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
     res = fd_write(fd, buffer, len, off);
     if (res < 0)
-        LOG(_("write returning '%s'\n"), strerror(-res));
+        print_log(_("write returning '%s'\n"), strerror(-res));
     else
-        LOG(_("write returning success (wrote %d)\n"), res);
+        print_log(_("write returning success (wrote %d)\n"), res);
     return res;
 }
 
@@ -539,7 +544,7 @@ static int path_link(struct path *ffrom, struct path *fto)
 static int tag_link(const char *from, const char *to)
 {
     int res = 0;
-    LOG(_("link file from:'%s' - to:'%s'\n"), from, to);
+    print_log(_("link file from:'%s' - to:'%s'\n"), from, to);
 
 
     struct path *ffrom = path_create(from, 0);
@@ -550,7 +555,7 @@ static int tag_link(const char *from, const char *to)
     path_delete(ffrom);
     path_delete(fto);
 
-    LOG(_("link returning '%s'\n"), strerror(-res));
+    print_log(_("link returning '%s'\n"), strerror(-res));
     return res;
 }
 
@@ -669,7 +674,8 @@ static struct fuse_operations tag_oper = {
     .rmdir = tag_rmdir,
 
     .mknod = tag_mknod,
-    .mkdir = tag_mkdir,
+    .mkdir = tag_noop_mkdir,
+    
     .truncate = tag_truncate,
     .chmod = tag_chmod,
     .chown = tag_chown,
@@ -684,6 +690,7 @@ static struct fuse_operations tag_oper = {
     .poll = tag_poll,
 
     .flag_nopath = 1,
+    .flag_nullpath_ok = 1,
 };
 
 static void set_root_directory(const char *path)
@@ -732,9 +739,9 @@ int main(int argc, char *argv[])
     setlocale(LC_ALL, "");
     set_root_directory(argv[1]);
 
-    LOG(_("starting %s in %s\n"), argv[0], realdirpath);
+    print_log(_("starting %s in %s\n"), argv[0], realdirpath);
     err = fuse_main(argc-1, argv+1, &tag_oper, NULL);
-    LOG(_("stopped %s with return code %d\n"), argv[0], err);
+    print_log(_("stopped %s with return code %d\n"), argv[0], err);
 
     save_tag_db();
 
