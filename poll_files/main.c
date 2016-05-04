@@ -22,7 +22,7 @@ static void usage(const char *imagefile)
 }
 */
 
-void check_event(struct pollfd *pf, const char *filename)
+static void check_event(struct pollfd *pf, const char *filename)
 {
     if (pf->revents & POLLIN)
         printf("ajout d'un tag sur %s\n", filename);
@@ -55,12 +55,12 @@ int main(int argc, char *const argv[])
     }
 
     while (true) {
-        int err = poll(fds, 2, -1);
+        int err = poll(fds, size, -1);
         if (err < 0) {
             perror("poll");
             exit(EXIT_FAILURE);
         }
-        for (int i = 0; i < 2; ++i)
+        for (int i = 0; i < size; ++i)
             check_event(&fds[i], name[i]);
     }
     return EXIT_SUCCESS;
