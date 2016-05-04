@@ -15,5 +15,6 @@ int db_list_selected_files(
 int db_tag_file(int t_id, int f_id);
 int db_untag_file(int t_id, int f_id);
 bool db_file_match_tags(int fid, struct hash_table *selected_tags);
+int db_remove_tag(int t_id);
 
 #endif //DB_H

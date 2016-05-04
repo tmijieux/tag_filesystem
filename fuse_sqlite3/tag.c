@@ -61,6 +61,7 @@ bool tag_exist(const char *value)
 void tag_remove(struct tag *t)
 {
     ht_remove_entry(tags, t->value);
+    db_remove_tag(t->id);
     free(t);
 }
 

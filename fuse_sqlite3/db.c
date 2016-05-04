@@ -52,12 +52,12 @@ INITIALIZER(init_db)
                                  sqlite3_errmsg(tag_db));exit(1);}
 
 #define DB_BIND_INT(STMT, NAME, TEXT)                                   \
-    if(sqlite3_bind_int(                                                \
+    if (sqlite3_bind_int(                                                \
         STMT,                                                           \
         sqlite3_bind_parameter_index(STMT, ":"NAME),                    \
         TEXT                                                            \
-    ) != SQLITE_OK) {print_error("error binding int: %s\n",              \
-                                sqlite3_errmsg(tag_db));exit(1);}
+    ) != SQLITE_OK) {print_error("error binding int: %s\n",             \
+                                 sqlite3_errmsg(tag_db));exit(1);}
 
 static int db_add_(const char *name, int id,
                    const char *table, const char *prefix)
@@ -311,6 +311,50 @@ int db_untag_file(int t_id, int f_id)
     
     DB_BIND_INT(stmt, "tid", t_id);
     DB_BIND_INT(stmt, "fid", f_id);
+
+    ret = sqlite3_step(stmt);
+    if (ret != SQLITE_DONE) {
+        print_error("%s\n", sqlite3_errmsg(tag_db));
+    }
+    sqlite3_finalize(stmt);
+    return ret != SQLITE_DONE ? -1 : 0;
+}
+
+
+static int db_remove_tag_file(int t_id)
+{
+    int ret;
+    struct sqlite3_stmt *stmt;
+    ret = sqlite3_prepare_v2(
+        tag_db,
+        "DELETE FROM tag_file WHERE t_id = :tid",
+        -1, &stmt, NULL
+    );
+    if (ret == SQLITE_ERROR)
+        print_error("%s\n", sqlite3_errmsg(tag_db));
+    DB_BIND_INT(stmt, "tid", t_id);
+
+    ret = sqlite3_step(stmt);
+    if (ret != SQLITE_DONE) {
+        print_error("%s\n", sqlite3_errmsg(tag_db));
+    }
+    sqlite3_finalize(stmt);
+    return ret != SQLITE_DONE ? -1 : 0;
+}
+
+int db_remove_tag(int t_id)
+{
+    db_remove_tag_file(t_id);
+    int ret;
+    struct sqlite3_stmt *stmt;
+    ret = sqlite3_prepare_v2(
+        tag_db,
+        "DELETE FROM tag WHERE t_id = :tid",
+        -1, &stmt, NULL
+    );
+    if (ret == SQLITE_ERROR)
+        print_error("%s\n", sqlite3_errmsg(tag_db));
+    DB_BIND_INT(stmt, "tid", t_id);
 
     ret = sqlite3_step(stmt);
     if (ret != SQLITE_DONE) {
