@@ -265,7 +265,8 @@ static void readdir_list_tags_mode1(
 static struct hash_table *readdir_get_selected_files(
     struct hash_table *selected_tags)
 {
-    struct hash_table *selected_files;
+    struct hash_table *selected_files, *not_matching;
+    
     selected_files = ht_create(0, NULL);
     // 1 get all file for selected tags:
     void each_tag(const char *n, void *tag, void *arg)
@@ -281,6 +282,7 @@ static struct hash_table *readdir_get_selected_files(
     ht_for_each(selected_tags, &each_tag, NULL);
 
     // remove file not matching all the tags
+    not_matching = ht_create(0, NULL);
     void each_file(const char *n, void *file, void *arg)
     {
         void each_tag(const char *n, void *tag, void *file)
@@ -288,14 +290,21 @@ static struct hash_table *readdir_get_selected_files(
             struct file *f = file;
             struct tag *t = tag;
             if (!ht_has_entry(f->tags, t->value)) {
-                ht_remove_entry(selected_files, f->name);
-                print_debug(_("removing file %s from selected_files\n"), f->name);
-            }
+                ht_add_entry(not_matching, f->name, f);
+             }
         }
         ht_for_each(selected_tags, &each_tag, file);
     }
     ht_for_each(selected_files, &each_file, NULL);
 
+    void remove_file(const char *n, void *f_, void *arg)
+    {
+        ht_remove_entry(selected_files, n);
+        print_debug(_("removing file %s from selected_files\n"), n);
+    }
+    ht_for_each(not_matching, remove_file, NULL);
+                
+    ht_free(not_matching);
     return selected_files;
 }
 
@@ -357,7 +366,7 @@ static int tag_readdir(
     struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
     struct path *path = fd->path;
 
-    LOG(_("\n\nreaddir '%s'\n"), path->virtpath);
+    LOG(_("readdir '%s'\n"), path->virtpath);
     filler(buf, ".", NULL, 0, 0);
     filler(buf, "..", NULL, 0, 0);
 
