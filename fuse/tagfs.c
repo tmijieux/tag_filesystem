@@ -182,6 +182,11 @@ static int tag_unlink(const char *user_path)
     return res;
 }
 
+static int tag_rmdir_noop(const char *user_path)
+{
+    return 0;
+}
+
 static int tag_rmdir(const char *user_path)
 {
     int res = 0;
@@ -666,7 +671,7 @@ static struct fuse_operations tag_oper = {
 
     .link = tag_link,
     .unlink = tag_unlink,
-    .rmdir = tag_rmdir,
+    .rmdir = tag_rmdir_noop,
 
     .mknod = tag_mknod,
     .mkdir = tag_mkdir,

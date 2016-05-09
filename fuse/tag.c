@@ -60,6 +60,7 @@ bool tag_exist(const char *value)
 void tag_add_file(struct tag *t, struct file *f)
 {
     ht_add_unique_entry(t->files, f->name, f);
+    t->in_use = true;
 }
 
 void tag_remove_file(struct tag *t, struct file *f)
