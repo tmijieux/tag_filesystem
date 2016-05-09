@@ -16,12 +16,12 @@ def parseNtag1fichier():
 
     i = [ 2**i for i in range(0, n) ]
     raw_input() # useless line "will use **file**"
-
-    c = read_array(n)
+    c = []
+   # c = read_array(n)
     t = read_array(n)
 
     l = []
-    raw_input() # listing "not implemented"
+    #raw_input() # listing "not implemented"
     #l = read_array(n)
 
     r = read_array(n)
@@ -30,21 +30,23 @@ def parseNtag1fichier():
     return i, c, t, l, r, d
 
 def parse1tagNfichier():
-    n = 4
+    n = 13
 
     i = [ 2**i for i in range(0, n) ]
     raw_input() # useless line "will use **file**"
-
-    c = read_array(n)
+    c = []
+    #c = read_array(n)
     t = read_array(n)
 
     l = []
     raw_input() # listing "not implemented"
+    raw_input() # listing "not implemented"
     #l = read_array(n)
 
     r = read_array(n)
-    d = []
-    #d = read_array(n)
+    raw_input() # listing "not implemented"
+
+    d = read_array(n)
 
     return i, c, t, l, r, d
 
@@ -54,7 +56,7 @@ def plot_array(i, a):
         plt.show()
 
 if __name__ == "__main__":
-    i, c, t, l, r, d = parseNtag1fichier()
+    i, c, t, l, r, d = parse1tagNfichier()
     plot_array(i, c)
     plot_array(i, t)
     plot_array(i, l)
