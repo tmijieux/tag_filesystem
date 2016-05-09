@@ -2,7 +2,9 @@
 #error "gcc vaincra"
 #endif
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE 1 /* must stay at the very top */
+#endif
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -137,16 +139,11 @@ int main(int argc, char *argv[])
         }
     }
 
-
     char fs_type[_BUF_SIZE], cwd[_BUF_SIZE];
     getcwd(cwd, _BUF_SIZE);
 
-    if (getxattr(cwd, "fs_type", fs_type, _BUF_SIZE) < 0)
-    {
-        perror("getxattr");
-        exit(EXIT_FAILURE);
-    }
-    if (strcmp(fs_type, "fuse_tag") != 0) {
+    if (getxattr(cwd, "fs_type", fs_type, _BUF_SIZE) < 0
+             || strcmp(fs_type, "fuse_tag") != 0) {
         fprintf(stderr, "%s: must be the tag filesystem\n", cwd);
         fprintf(stderr, "%s\n", fs_type);
         exit(EXIT_FAILURE);
