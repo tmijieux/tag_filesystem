@@ -128,8 +128,30 @@ static char *find_file(void)
         }                                                               \
     } while(0)
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    if (argc > 1) {
+        if (chdir(argv[1]) < 0) {
+            perror(argv[1]);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+
+    char fs_type[_BUF_SIZE], cwd[_BUF_SIZE];
+    getcwd(cwd, _BUF_SIZE);
+
+    if (getxattr(cwd, "fs_type", fs_type, _BUF_SIZE) < 0)
+    {
+        perror("getxattr");
+        exit(EXIT_FAILURE);
+    }
+    if (strcmp(fs_type, "fuse_tag") != 0) {
+        fprintf(stderr, "%s: must be the tag filesystem\n", cwd);
+        fprintf(stderr, "%s\n", fs_type);
+        exit(EXIT_FAILURE);
+    }
+
     char *f = find_file();
     DO_STEP(TAG_MAX, f, mkdir, "creating", "", 0);
     DO_STEP(TAG_MAX, f, link, "adding", "/%s", 1);

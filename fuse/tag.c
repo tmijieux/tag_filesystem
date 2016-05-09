@@ -87,12 +87,12 @@ void compute_selected_tags(
     int tag_count = string_split(dirpath, "/", &tags);
 
     for (i = 0; i < tag_count; ++i) {
-        DBG("selected tag: %s\n", tags[i]);
+        print_debug("selected tag: %s\n", tags[i]);
         ht_add_entry(selected_tags, tags[i], tag_get(tags[i]));
         free(tags[i]);
     }
     free(tags);
-    DBG("selected tag: %d\n", i);
+    print_debug("selected tag: %d\n", i);
 }
 
 struct list *tag_list(void)
@@ -116,7 +116,7 @@ void tag_db_dump(FILE *output)
 {
     struct list *l = file_list();
     int s = list_size(l);
-    DBG("read tag list size = %d\n", s);
+    print_debug("read tag list size = %d\n", s);
     for (int i = 1; i <= s; ++i) {
         struct file *f = list_get(l, i);
 
@@ -124,7 +124,7 @@ void tag_db_dump(FILE *output)
             continue;
 
         fprintf(output, "[%s]\n", f->name);
-        DBG(_("print file %s\n"), f->name);
+        print_debug(_("print file %s\n"), f->name);
         void print_tag(const char *key, void *tag, void *value)
         {
             struct tag *t = tag;
