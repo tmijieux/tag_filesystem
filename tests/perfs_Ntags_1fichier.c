@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
     }
 
     char *f = find_file();
-    DO_STEP(TAG_MAX, f, mkdir, "creating", "", 0);
+//    DO_STEP(TAG_MAX, f, mkdir, "creating", "", 0);
     DO_STEP(TAG_MAX, f, link, "adding", "/%s", 1);
 // DO_STEP(TAG_MAX, f, getxattr, "listing", "/%s", 2);
     DO_STEP(TAG_MAX, f, unlink, "removing", "/%s", 2);

@@ -28,6 +28,18 @@ static void print_any(
     free(str);
 }
 
+void __print_error(
+    const char *filename, int line,
+    const char *pretty_function, const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    print_any(stderr, "ERROR", filename, line,
+              pretty_function, format, ap);
+}
+
+
+#ifndef NO_LOG
 static void print_file(
     FILE *f, char *string,
     const char *filename, int line,
@@ -42,18 +54,6 @@ static void print_file(
     free(str);
 }
 
-void __print_error(
-    const char *filename, int line,
-    const char *pretty_function, const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    print_any(stderr, "ERROR", filename, line,
-              pretty_function, format, ap);
-}
-
-
-#ifndef NO_LOG
 void __print_log(
     const char *filename, int line,
     const char *pretty_function, const char *format, ...)
