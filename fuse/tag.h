@@ -7,6 +7,7 @@ struct tag {
     char *value;
     struct hash_table *files;
     bool in_use;
+    int ref_count;
 };
 
 #define INVALID_TAG ((struct tag*)0xdeadcafebeefbabe)

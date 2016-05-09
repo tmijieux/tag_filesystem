@@ -17,6 +17,20 @@ INITIALIZER(tag_init)
     tags = ht_create(0, NULL);
 }
 
+static void tag_dec_ref(struct tag *t)
+{
+    -- t->ref_count;
+    if (t->ref_count == 0) {
+        ht_remove_entry(tags, t->value);
+        free(t);
+    }
+}
+
+static void tag_inc_ref(struct tag *t)
+{
+    ++ t->ref_count;
+}
+
 static struct tag *tag_new(const char *value, bool in_use)
 {
     struct tag *t = calloc(sizeof*t, 1);
@@ -40,7 +54,10 @@ static struct tag* tag_get_or_create__(const char *value, bool in_use)
 
 struct tag* tag_get_or_create(const char *value)
 {
-    return tag_get_or_create__(value, true);
+    struct tag *t;
+    t = tag_get_or_create__(value, true);
+    tag_inc_ref(t);
+    return t;
 }
 
 struct tag* tag_get(const char *value)
@@ -75,8 +92,7 @@ void tag_remove(struct tag *t)
         file_remove_tag(f, t);
     }
     ht_for_each(t->files, &remove_tag, t);
-    ht_remove_entry(tags, t->value);
-    free(t);
+    tag_dec_ref(t);
 }
 
 void compute_selected_tags(
@@ -95,10 +111,11 @@ void compute_selected_tags(
 
     for (i = 0; i < tag_count; ++i) {
         print_debug("selected tag: %s\n", tags[i]);
-        ht_add_entry(
-            selected_tags, tags[i],
-            tag_get_or_create__(tags[i], false)
-        );
+        struct tag *t = tag_get(tags[i]);
+        if (t == INVALID_TAG)
+            t = tag_get_or_create__(tags[i], false);
+        tag_inc_ref(t);
+        ht_add_entry(selected_tags, tags[i], t);
         free(tags[i]);
     }
     free(tags);
