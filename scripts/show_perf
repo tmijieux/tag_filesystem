@@ -31,7 +31,7 @@ def parse():
 
 def plot_array(i, a):
     if len(i) == len(a):
-        plt.plot(i, a, 'bo')
+        plt.plot(i, a, 'bo-')
         plt.show()
 
 if __name__ == "__main__":

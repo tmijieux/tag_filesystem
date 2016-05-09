@@ -9,7 +9,6 @@
 #include "./path.h"
 #include "./poll.h"
 
-
 #if FUSE_USE_VERSION != 30
 #    define filler(a, b, c, d, e)   filler(a, b, c, d)
 #endif
@@ -66,7 +65,7 @@ static int getattr_intra(struct path *p, struct stat *stbuf)
 
     /* try to stat the actual file */
     if ((res = stat(p->realpath, stbuf)) < 0 || S_ISDIR(stbuf->st_mode)) {
-        LOG(_("error ::%s :: %s\n"), p->realpath, strerror(errno));
+        print_log(_("error ::%s :: %s\n"), p->realpath, strerror(errno));
         /* if the file doesn't exist, check if it's a tag
            (or the root) directory and stat the main directory instead */
 
@@ -90,10 +89,10 @@ static int getattr_intra(struct path *p, struct stat *stbuf)
 static int tag_getattr(const char *user_path, struct stat *stbuf)
 {
     int res;
-    LOG(_("getattr '%s'\n"), user_path);
+    print_log(_("getattr '%s'\n"), user_path);
     struct path *path = path_create(user_path, 0);
     res = getattr_intra(path, stbuf);
-    LOG(_("getattr returning '%s'\n"), strerror(-res));
+    print_log(_("getattr returning '%s'\n"), strerror(-res));
     path_delete(path);
     return res;
 }
@@ -114,18 +113,15 @@ static int tag_setxattr(
     return -EPERM;
 }
 
-static int tag_getxattr(
-    const char *user_path, const char *name,
-    char *value, size_t size)
+static int tag_getxattr_list_tags(
+    const char *user_path, char *value, size_t size)
 {
     int err, len;
     char *str;
-    struct stat st;
     struct path *p;
+    struct stat st;
     struct file *f;
 
-    if (strcmp(name, "tags") != 0)
-        return -ENODATA;
 
     p = path_create(user_path, 0);
     err = getattr_intra(p, &st);
@@ -136,15 +132,36 @@ static int tag_getxattr(
         err = -EISDIR;
         goto out;
     }
-
+    
     f = file_get_or_create(p->filename);
     str = file_get_tags_string(f, &len);
     strncpy(value, str, size);
     err = len;
     free(str);
-out:
+
+  out:
     path_delete(p);
     return err;
+}
+
+static int tag_getxattr_fs_type(char *value, size_t size)
+{
+    strncpy(value, "fuse_tag", size);
+    print_debug("PASSE PAR LLLLA %s %zu\n", value, size);
+    return strlen("fuse_tag")+1;
+}
+
+static int tag_getxattr(
+    const char *user_path, const char *name,
+    char *value, size_t size)
+{
+    print_log("getxattr user_path = %s, name = %s, size = %zu\n",
+              user_path, name, size);
+    if (strcmp(name, "tags") == 0)
+        return tag_getxattr_list_tags(user_path, value, size);
+    if (strcmp(name, "fs_type") == 0)
+        return tag_getxattr_fs_type(value, size);
+    return -ENODATA;
 }
 
 static int path_unlink(struct path *fd)
@@ -171,7 +188,7 @@ static int tag_unlink(const char *user_path)
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
 
-    LOG("unlink '%s'\n", user_path);
+    print_log("unlink '%s'\n", user_path);
     if (slash_count <= 1)
         return -EPERM;
 
@@ -191,7 +208,7 @@ static int tag_rmdir(const char *user_path)
 {
     int res = 0;
     int slash_count = get_character_count(user_path, '/');
-    LOG(_("rmdir '%s'\n"), user_path);
+    print_log(_("rmdir '%s'\n"), user_path);
     if (slash_count > 1)
         return -EPERM;
 
@@ -374,7 +391,7 @@ static int tag_readdir(
     struct file_descriptor *fd = (struct file_descriptor*) fi->fh;
     struct path *path = fd->path;
 
-    LOG(_("readdir '%s'\n"), path->virtpath);
+    print_log(_("readdir '%s'\n"), path->virtpath);
     filler(buf, ".", NULL, 0, 0);
     filler(buf, "..", NULL, 0, 0);
 
@@ -385,7 +402,7 @@ static int tag_readdir(
     readdir_list_files(buf, path, filler);
 
     int res = 0;
-    LOG(_("readdir returning %s\n\n\n"), strerror(-res));
+    print_log(_("readdir returning %s\n\n\n"), strerror(-res));
     return res;
 }
 
@@ -404,7 +421,7 @@ static int read_tag_file(char *buffer, size_t len, off_t off)
     if (res < 0) {
         res = -errno;
     } else if (res < len) {
-        DBG("res = %d ;; len = %d\n", res, len);
+        print_debug("res = %d ;; len = %d\n", res, len);
         for (int i = res; i < len; ++i) {
             buffer[i] = 0;
         }
@@ -412,9 +429,9 @@ static int read_tag_file(char *buffer, size_t len, off_t off)
 out:
     fclose(tagfile);
     if (res < 0)
-        LOG(_("read_tag returning '%s'\n"), strerror(-res));
+        print_log(_("read_tag returning '%s'\n"), strerror(-res));
     else
-        LOG(_("read_tag returning success (read %d)\n"), res);
+        print_log(_("read_tag returning success (read %d)\n"), res);
     return res;
 }
 
@@ -429,12 +446,12 @@ static int tag_read(
     if (fd->is_tag_file)
         return read_tag_file(buffer, len, off);
 
-    LOG(_("read '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
+    print_log(_("read '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
     res = fd_read(fd, buffer, len, off);
     if (res < 0)
-        LOG(_("read returning '%s'\n"), strerror(-res));
+        print_log(_("read returning '%s'\n"), strerror(-res));
     else
-        LOG(_("read returning success (read %d)\n"), res);
+        print_log(_("read returning success (read %d)\n"), res);
     return res;
 }
 
@@ -448,12 +465,12 @@ static int tag_write(
     if (fd->is_tag_file)
         return -EPERM;
 
-    LOG(_("write '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
+    print_log(_("write '%s' for %ld bytes starting at offset %ld\n"), path, len, off);
     res = fd_write(fd, buffer, len, off);
     if (res < 0)
-        LOG(_("write returning '%s'\n"), strerror(-res));
+        print_log(_("write returning '%s'\n"), strerror(-res));
     else
-        LOG(_("write returning success (wrote %d)\n"), res);
+        print_log(_("write returning success (wrote %d)\n"), res);
     return res;
 }
 
@@ -544,7 +561,7 @@ static int path_link(struct path *ffrom, struct path *fto)
 static int tag_link(const char *from, const char *to)
 {
     int res = 0;
-    LOG(_("link file from:'%s' - to:'%s'\n"), from, to);
+    print_log(_("link file from:'%s' - to:'%s'\n"), from, to);
 
 
     struct path *ffrom = path_create(from, 0);
@@ -555,7 +572,7 @@ static int tag_link(const char *from, const char *to)
     path_delete(ffrom);
     path_delete(fto);
 
-    LOG(_("link returning '%s'\n"), strerror(-res));
+    print_log(_("link returning '%s'\n"), strerror(-res));
     return res;
 }
 
@@ -688,6 +705,7 @@ static struct fuse_operations tag_oper = {
     .ioctl = tag_ioctl,
     .poll = tag_poll,
 
+    .flag_nullpath_ok = 1,
     .flag_nopath = 1,
 };
 
@@ -722,6 +740,9 @@ static void save_tag_db(void)
     free(output_db_filename);
 }
 
+
+
+
 int main(int argc, char *argv[])
 {
     int err;
@@ -737,9 +758,9 @@ int main(int argc, char *argv[])
     setlocale(LC_ALL, "");
     set_root_directory(argv[1]);
 
-    LOG(_("starting %s in %s\n"), argv[0], realdirpath);
+    print_log(_("starting %s in %s\n"), argv[0], realdirpath);
     err = fuse_main(argc-1, argv+1, &tag_oper, NULL);
-    LOG(_("stopped %s with return code %d\n"), argv[0], err);
+    print_log(_("stopped %s with return code %d\n"), argv[0], err);
 
     save_tag_db();
 

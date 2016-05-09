@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/xattr.h>
 #include <sys/stat.h>
+#include <sys/vfs.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <libgen.h>
