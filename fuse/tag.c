@@ -194,8 +194,8 @@ void parse_tags_db(
     fi = fopen(filename, "r+");
     if (fi != NULL) {
         parse_tags_db2(fi, getattr);
+        fclose(fi);
     }
-    fclose(fi);
 }
 
 void update_lib(char *tagFile)
