@@ -740,9 +740,6 @@ static void save_tag_db(void)
     free(output_db_filename);
 }
 
-
-
-
 int main(int argc, char *argv[])
 {
     int err;
