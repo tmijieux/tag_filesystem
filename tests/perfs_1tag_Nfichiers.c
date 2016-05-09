@@ -19,8 +19,10 @@
 #include <fcntl.h>
 
 /*
- * Ce programme mesures les performances de manipulation d'un seul tag sur plein de fichiers.
- * Il doit être lancé DANS le répertoire racine du montage virtuel avec plein de fichiers existants.
+ * Ce programme mesures les performances de manipulation d'un seul tag sur
+ * plein de fichiers.
+ * Il doit être lancé DANS le répertoire racine du montage virtuel avec plein
+ * de fichiers existants.
  *
  * Il mesure le temps pour réaliser les différentes opérations sur ces fichiers,
  * pour 1, puis 2, puis ... 2^N ... jusqu'au nombre total de fichiers existants.
@@ -89,6 +91,7 @@ int main(int argc, char *argv[])
 
     closedir(dir);
 
+    /*
     err = mkdir(TAG1, S_IRWXU);
     if (err < 0) {
         perror("mkdir");
@@ -99,6 +102,7 @@ int main(int argc, char *argv[])
         perror("mkdir");
         exit(EXIT_FAILURE);
     }
+    */
 
     gettimeofday(&tv1, NULL);
     for(i=0; i<nfiles; i++) {
@@ -178,6 +182,7 @@ int main(int argc, char *argv[])
     gettimeofday(&tv2, NULL);
     usecs = (tv2.tv_sec-tv1.tv_sec)*1000000+(tv2.tv_usec-tv1.tv_usec);
     printf("%lu usecs for untagging all %u files\n", usecs, nfiles);
+
 
     err = rmdir(TAG1);
     if (err < 0) {

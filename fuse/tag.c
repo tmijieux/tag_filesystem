@@ -87,11 +87,22 @@ void tag_remove_file(struct tag *t, struct file *f)
 
 void tag_remove(struct tag *t)
 {
-    void remove_tag(const char *name, void *f, void *t)
+    struct hash_table *tmp = ht_create(0, NULL);
+    void prepare_remove_tag(const char *name, void *f, void *ctx)
     {
+        ht_add_entry(tmp, t->value, f);
+    }
+    ht_for_each(t->files, &prepare_remove_tag, t);
+
+    void remove_tag(const char *name, void *f_, void *ctx)
+    {
+        struct file *f =  f_;
         file_remove_tag(f, t);
     }
-    ht_for_each(t->files, &remove_tag, t);
+    ht_for_each(tmp, &remove_tag, NULL);
+    ht_free(tmp);
+
+    ht_remove_entry(tags, t->value);
     tag_dec_ref(t);
 }
 
