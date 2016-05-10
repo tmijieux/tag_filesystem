@@ -1,0 +1,6 @@
+#!/bin/bash
+N=5000
+for id in $(seq 1 $N); do
+    touch file_tmp_$id
+done
+

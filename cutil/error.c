@@ -11,9 +11,10 @@
 
 // be sure to do this include first:
 #include "error.h"
+#include "log.h"
 
 static void print_any(
-    char *string,
+    FILE *f, char *string,
     const char *filename, int line,
     const char *pretty_function, const char *format, va_list ap)
 {
@@ -21,8 +22,8 @@ static void print_any(
     if (vasprintf(&str, format, ap) < 0)
         perror("vasprintf: ");
 
-    fprintf(stderr, _("\e[31;1m%s: %s\e[32m:\e[31;1m"
-                      "%d\e[32m|\e[31;1m%s:\e[0m %s"),
+    fprintf(f, "\e[31;1m%s: %s\e[32m:\e[31;1m"
+            "%d\e[32m|\e[31;1m%s:\e[0m %s",
             string, filename, line, pretty_function, str);
     free(str);
 }
@@ -33,7 +34,24 @@ void __print_error(
 {
     va_list ap;
     va_start(ap, format);
-    print_any("ERROR", filename, line, pretty_function, format, ap);
+    print_any(stderr, "ERROR", filename, line,
+              pretty_function, format, ap);
+}
+
+
+#ifndef NO_LOG
+static void print_file(
+    FILE *f, char *string,
+    const char *filename, int line,
+    const char *pretty_function, const char *format, va_list ap)
+{
+    char *str = NULL;
+    if (vasprintf(&str, format, ap) < 0)
+        perror("vasprintf: ");
+
+    fprintf(f, "\%s: %s: %d|%s: %s",
+            string, filename, line, pretty_function, str);
+    free(str);
 }
 
 void __print_log(
@@ -42,8 +60,13 @@ void __print_log(
 {
     va_list ap;
     va_start(ap, format);
-    print_any("LOG", filename, line, pretty_function, format, ap);
+    print_file(mylog, "LOG", filename, line, pretty_function, format, ap);
+
+    va_start(ap, format);
+    print_any(stderr, "LOG", filename, line, pretty_function, format, ap);
 }
+
+#endif
 
 #ifdef DEBUG
 
@@ -51,15 +74,11 @@ void __print_debug(
     const char *filename, int line,
     const char *pretty_function,const char *format, ...)
 {
-    char *str;
     va_list ap;
 
     va_start(ap, format);
-    vasprintf(&str, format, ap);
-    fprintf(stderr, _("\e[6;30;43mDEBUG:\e[0;31;1m %s\e[32m:\e[31;1m"
-                      "%d\e[32m|\e[31;1m%s:\e[0m %s"),
-            filename, line, pretty_function, str);
-    free(str);
+    print_any(stderr, _("\e[6;30;43mDEBUG:\e[0;0;0m"),
+            filename, line, pretty_function, format, ap);
 }
 
 #endif

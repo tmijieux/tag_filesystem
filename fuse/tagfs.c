@@ -9,7 +9,6 @@
 #include "./path.h"
 #include "./poll.h"
 
-
 #if FUSE_USE_VERSION != 30
 #    define filler(a, b, c, d, e)   filler(a, b, c, d)
 #endif
@@ -114,18 +113,15 @@ static int tag_setxattr(
     return -EPERM;
 }
 
-static int tag_getxattr(
-    const char *user_path, const char *name,
-    char *value, size_t size)
+static int tag_getxattr_list_tags(
+    const char *user_path, char *value, size_t size)
 {
     int err, len;
     char *str;
-    struct stat st;
     struct path *p;
+    struct stat st;
     struct file *f;
 
-    if (strcmp(name, "tags") != 0)
-        return -ENODATA;
 
     p = path_create(user_path, 0);
     err = getattr_intra(p, &st);
@@ -136,15 +132,36 @@ static int tag_getxattr(
         err = -EISDIR;
         goto out;
     }
-
+    
     f = file_get_or_create(p->filename);
     str = file_get_tags_string(f, &len);
     strncpy(value, str, size);
     err = len;
     free(str);
-out:
+
+  out:
     path_delete(p);
     return err;
+}
+
+static int tag_getxattr_fs_type(char *value, size_t size)
+{
+    strncpy(value, "fuse_tag", size);
+    print_debug("PASSE PAR LLLLA %s %zu\n", value, size);
+    return strlen("fuse_tag")+1;
+}
+
+static int tag_getxattr(
+    const char *user_path, const char *name,
+    char *value, size_t size)
+{
+    print_log("getxattr user_path = %s, name = %s, size = %zu\n",
+              user_path, name, size);
+    if (strcmp(name, "tags") == 0)
+        return tag_getxattr_list_tags(user_path, value, size);
+    if (strcmp(name, "fs_type") == 0)
+        return tag_getxattr_fs_type(value, size);
+    return -ENODATA;
 }
 
 static int path_unlink(struct path *fd)
@@ -180,6 +197,11 @@ static int tag_unlink(const char *user_path)
 
     path_delete(fd);
     return res;
+}
+
+static int tag_rmdir_noop(const char *user_path)
+{
+    return 0;
 }
 
 static int tag_rmdir(const char *user_path)
@@ -404,7 +426,7 @@ static int read_tag_file(char *buffer, size_t len, off_t off)
     if (res < 0) {
         res = -errno;
     } else if (res < len) {
-        DBG("res = %d ;; len = %d\n", res, len);
+        print_debug("res = %d ;; len = %d\n", res, len);
         for (int i = res; i < len; ++i) {
             buffer[i] = 0;
         }
@@ -671,7 +693,7 @@ static struct fuse_operations tag_oper = {
 
     .link = tag_link,
     .unlink = tag_unlink,
-    .rmdir = tag_rmdir,
+    .rmdir = tag_rmdir_noop,
 
     .mknod = tag_mknod,
     .mkdir = tag_noop_mkdir,
@@ -689,6 +711,7 @@ static struct fuse_operations tag_oper = {
     .ioctl = tag_ioctl,
     .poll = tag_poll,
 
+    .flag_nullpath_ok = 1,
     .flag_nopath = 1,
     .flag_nullpath_ok = 1,
 };

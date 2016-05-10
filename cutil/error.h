@@ -13,29 +13,30 @@
 
 #define _(X) gettext((X))
 
-#ifdef DEBUG
 void __print_error(
     const char *filename, int line,
     const char *pretty_function, const char *format, ...);
+#define print_error(x, ...)  __print_error(                         \
+    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
+
+
+#ifndef NO_LOG
 void __print_log(
     const char *filename, int line,
     const char *pretty_function, const char *format, ...);
-void __print_debug(
-    const char *filename, int line,
-    const char *pretty_function,const char *format, ...);
+#    define print_log(x, ...)  __print_log(                             \
+    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
+#else
+#    define print_log(f, ...)
 #endif
 
 #ifdef DEBUG
-#    define print_error(x, ...)  __print_error(                         \
-    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
-
-#    define print_log(x, ...)  __print_log(                             \
-    __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
+void __print_debug(
+    const char *filename, int line,
+    const char *pretty_function,const char *format, ...);
 #    define print_debug(x, ...)  __print_debug(                         \
     __FILENAME__, __LINE__, __PRETTY_FUNCTION__, x, ##__VA_ARGS__)
 #else
-#    define print_error(f, ...) 
-#    define print_log(f, ...) 
 #    define print_debug(f, ...)
 #endif
 

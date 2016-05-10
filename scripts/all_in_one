@@ -4,5 +4,5 @@ file=$(mktemp /tmp/tempXXXXXX.c)
 cc=gcc
 
 cat ../cutil/*.c *.c > $file
-$cc $file ${CFLAGS} -D_FILE_OFFSET_BITS=64 -I. -I ../cutil -I../include -D_GNU_SOURCE -Wall -o tagfs -O3 -std=gnu99 -iquote. -pthread -lfuse -D_TAG_FUSE=fuse -DFUSE_VER=26 ${LDFLAGS} -pg
+$cc $file ${CFLAGS} -D_FILE_OFFSET_BITS=64 -I. -I ../cutil -I../include -D_GNU_SOURCE -Wall -o tagfs -O3 -march=native -std=gnu99 -iquote. -pthread -lfuse -DNO_LOG -D_TAG_FUSE=fuse -DFUSE_VER=26 ${LDFLAGS}
 rm $file
