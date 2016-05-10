@@ -1,0 +1,34 @@
+Compilation: 
+	- make
+
+(une des différentes version peut avoir une dépendance à la librairie sqlite3
+ si il n'est pas souhaité de la compiler, il suffit de commenter la ligne
+	'make -C fuse_sqlite3' 
+dans le Makefile)
+
+Les différents systeme de fichier ne seront pas naturellements persistants par défaut.
+Ils sauvegardent leurs bases de données dans .tags.new plutot que dans .tags
+Nous avons trouvé cela commode pour le developement pour évité d'écraser la base
+lorsque des problèmes se présentaient, et nous avons donc conserver cette sémantique.
+
+Les différentes version sont a priori toutes présentes dans ce dossier.
+Initialement developé dans des branches différents, elle ont été rassemblés ici
+pour pouvoir les comparés plus facilement, il est donc fort probables qu'il y
+ait beaucoup de code redondant entre les différentes versions.
+
+
+fuse_sqlite3 contient une implémentation avec sqlite des structures de données cependant
+peu d'optimisation de la base sql on été fait. Avec des tables et une relation 
+basiques (sans index ou autre optimisation de db) les performances se valent 
+globalement avec les autres solutions utilisant les tables de hachages.
+
+fuse_lowlevel contient une implémentation a peu prés équivalent a celle de fuse_classic
+mais implémenté avec l'api de fuse dis 'bas niveau'
+
+le dossier fuse contient:
+	pour la branche master: la version aves les tags à la volée
+	pour la branche classic: la version sans les tags à la volée
+	pour la branche regexp: la version avec un support partiel des expressions
+		régulière
+
+
