@@ -42,8 +42,10 @@ char *aasprintf(const char *fmt, ...)
     char *ret = NULL;
     va_list ap;
     va_start(ap, fmt);
-    if (vasprintf(&ret, fmt, ap) < 0)
+    if (vasprintf(&ret, fmt, ap) < 0) {
         perror("vasprintf");
+        ret = NULL;
+    }
     va_end(ap);
     return ret;
 }

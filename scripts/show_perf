@@ -10,7 +10,6 @@ def read_array(n):
         a[i] = float(raw_input().split()[0])
     return a
 
-
 def parseNtag1fichier():
     n = 17
 
