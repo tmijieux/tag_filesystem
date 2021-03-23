@@ -5,7 +5,7 @@
 #include "./fuse_callback.h"
 
 struct inode;
-struct inode *itable;
+extern struct inode *itable;
 
 struct inode {
     fuse_ino_t number;
